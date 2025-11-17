@@ -1,0 +1,44 @@
+{
+  "name": "project-hawthorn",
+  "version": "1.0.0",
+  "description": "First-year students at UBC are required to purchase meal plans providing all-you-can-eat access to three dining halls: Feast, Open Kitchen, and Gather. Students can view what dishes are being served through Nutrislice, the university's official menu platform, but Nutrislice only displays menu listings—it provides no information about whether dishes are actually good. This means students frequently walk across campus to a dining hall based on an appealing menu description, only to discover the dish is poorly prepared or unappetizing. With limited time between classes, this wasted trip means settling for disappointing food or rushing to another location. Students have no systematic way to remember which dishes to avoid or share these experiences with peers. Existing solutions are inadequate: Nutrislice shows menus without quality feedback, word-of-mouth doesn't scale, and Reddit/Discord discussions are unstructured and quickly buried. Because students eat 15-20 meals per week in these mandatory dining halls spread across campus, poor decisions compound over time, creating unnecessary friction and disappointment in what should be a straightforward daily routine.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CPEN-221-2025/project-hawthorn.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CPEN-221-2025/project-hawthorn/issues"
+  },
+  "homepage": "https://github.com/CPEN-221-2025/project-hawthorn#readme",
+  "dependencies": {
+    "@chakra-ui/react": "^2.8.2",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@react-oauth/google": "^0.12.2",
+    "framer-motion": "^12.23.24",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.9.6"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@vitejs/plugin-react": "^5.1.1",
+    "jsdom": "^27.2.0",
+    "vite": "^7.2.2",
+    "vitest": "^4.0.10"
+  }
+}

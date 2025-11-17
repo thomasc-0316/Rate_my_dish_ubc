@@ -1,0 +1,3 @@
+# Docker is not used in the MVP; keep this placeholder for future setups.
+version: '3.9'
+services: {}

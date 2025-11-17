@@ -1,0 +1,1 @@
+TODO: Future release will add a lightweight Python scraper that pulls Nutrislice menus and upserts them through the Supabase service role; document data sources, schedule, and retry strategy once the MVP is validated.

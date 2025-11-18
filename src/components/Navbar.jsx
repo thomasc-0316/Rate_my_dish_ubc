@@ -56,9 +56,6 @@ export default function Navbar() {
           UBC Rate My Dish
         </Heading>
         <HStack ml={{ base: 0, md: 'auto' }} spacing={3} flexWrap="wrap">
-          <Button as={RouterLink} to="/" variant="ghost">
-            Home
-          </Button>
           <Button as={RouterLink} to="/leaderboard" variant="ghost" color="orange.400">
             Leaderboard
           </Button>

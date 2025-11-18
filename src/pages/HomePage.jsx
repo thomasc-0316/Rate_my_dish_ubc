@@ -17,7 +17,6 @@ export default function HomePage() {
             hallId={hall.id}
             name={hall.name}
             logo={hall.logo}
-            accentColor={hall.accentColor}
           />
         ))}
       </SimpleGrid>

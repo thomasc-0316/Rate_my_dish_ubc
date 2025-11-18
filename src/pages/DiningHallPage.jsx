@@ -25,8 +25,7 @@ export default function DiningHallPage() {
   return (
     <Box p={{ base: 4, md: 10 }} maxW="960px" mx="auto">
       <VStack align="flex-start" spacing={2} mb={6}>
-        <Heading size="lg">UBC Rate My Dish</Heading>
-        <Heading size="md" color="gray.600">
+        <Heading size="lg" color="black">
           {hall.name} Dining Hall
         </Heading>
       </VStack>

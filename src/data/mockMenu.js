@@ -1,3 +1,7 @@
+import feastLogo from '../assets/feast_logo.png';
+import openKitchenLogo from '../assets/open_kitchen_logo.png';
+import gatherLogo from '../assets/gather_logo.png';
+
 const sharedComments = [
   {
     id: 'comment-1',
@@ -16,9 +20,9 @@ const sharedComments = [
 export const halls = {
   totem: {
     id: 'totem',
-    name: 'Totem Park',
+    name: 'Feast',
     heroImage: 'https://placehold.co/600x400/6B46C1/FFFFFF?text=Totem+Park',
-    accentColor: 'purple.100',
+    logo: feastLogo,
     stations: [
       {
         id: 'totem-grill',
@@ -72,9 +76,9 @@ export const halls = {
   },
   'place-vanier': {
     id: 'place-vanier',
-    name: 'Place Vanier',
+    name: 'Gather',
     heroImage: 'https://placehold.co/600x400/F97316/FFFFFF?text=Place+Vanier',
-    accentColor: 'orange.100',
+    logo: gatherLogo,
     stations: [
       {
         id: 'vanier-global',
@@ -128,9 +132,9 @@ export const halls = {
   },
   'orchard-commons': {
     id: 'orchard-commons',
-    name: 'Orchard Commons',
+    name: 'Open Kitchen',
     heroImage: 'https://placehold.co/600x400/14B8A6/FFFFFF?text=Orchard+Commons',
-    accentColor: 'teal.100',
+    logo: openKitchenLogo,
     stations: [
       {
         id: 'orchard-market',

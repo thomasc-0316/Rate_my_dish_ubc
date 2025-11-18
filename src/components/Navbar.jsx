@@ -59,11 +59,8 @@ export default function Navbar() {
           <Button as={RouterLink} to="/" variant="ghost">
             Home
           </Button>
-          <Button as={RouterLink} to="/leaderboard" variant="ghost">
+          <Button as={RouterLink} to="/leaderboard" variant="ghost" color="orange.400">
             Leaderboard
-          </Button>
-          <Button as={RouterLink} to="/halls" variant="ghost">
-            Halls
           </Button>
 
           {/* Login/Profile Menu */}

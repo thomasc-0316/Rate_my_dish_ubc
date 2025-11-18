@@ -1,7 +1,7 @@
-import { Box, Heading } from '@chakra-ui/react';
+import { Box, Heading, Image } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 
-export default function DiningHallCard({ hallId, name, imagePlaceholder, accentColor = 'gray.100' }) {
+export default function DiningHallCard({ hallId, name, logo, accentColor = 'white.100' }) {
   const navigate = useNavigate();
 
   return (
@@ -17,18 +17,21 @@ export default function DiningHallCard({ hallId, name, imagePlaceholder, accentC
       <Box
         bg={accentColor}
         borderRadius="lg"
-        height="180px"
+        height="300px"
         mb={4}
         display="flex"
         alignItems="center"
         justifyContent="center"
-        color="gray.600"
-        fontWeight="semibold"
-        fontSize="lg"
+        overflow="hidden"
       >
-        {imagePlaceholder ?? 'Image'}
+        {logo ? (
+          <Image src={logo} alt={`${name} logo`} maxH="100%" objectFit="contain" />
+        ) : (
+          <Box color="gray.600" fontWeight="semibold" fontSize="lg">
+            Image
+          </Box>
+        )}
       </Box>
-      <Heading size="md">{name}</Heading>
     </Box>
   );
 }

@@ -16,9 +16,18 @@ import {
   Text,
   Textarea,
   VStack,
-  HStack
+  HStack,
+  Alert,
+  AlertIcon
 } from '@chakra-ui/react';
-import { getDish, getHall, getStation } from '../data/mockMenu';
+import {
+  addComment,
+  getDish,
+  getDishStats,
+  listComments,
+  listHalls,
+  listStations
+} from '../api';
 import CommentItem from '../components/CommentItem';
 
 export default function DishPage() {
@@ -26,52 +35,74 @@ export default function DishPage() {
   const [dish, setDish] = useState(null);
   const [comments, setComments] = useState([]);
   const [body, setBody] = useState('');
-  const [attemptedLoad, setAttemptedLoad] = useState(false);
+  const [stats, setStats] = useState({ avg: 0, count: 0 });
+  const [hallName, setHallName] = useState('');
+  const [stationName, setStationName] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!hallId || !stationId || !dishId) {
-      setDish(null);
-      setComments([]);
-      setAttemptedLoad(true);
-      return;
-    }
-    const nextDish = getDish(hallId, stationId, dishId);
-    setDish(nextDish ?? null);
-    setComments(nextDish?.comments ?? []);
-    setAttemptedLoad(true);
+    (async () => {
+      if (!dishId) {
+        setLoading(false);
+        return;
+      }
+      try {
+        setLoading(true);
+        setError('');
+        setComments([]);
+
+        const [halls, stationRows, dishRow, dishStats, dishComments] = await Promise.all([
+          listHalls(),
+          hallId ? listStations(hallId) : Promise.resolve([]),
+          getDish(dishId),
+          getDishStats(dishId),
+          listComments(dishId)
+        ]);
+
+        setHallName(halls.find((h) => h.slug === hallId)?.name ?? '');
+        const matchedStation = stationRows.find((st) => String(st.id) === String(stationId));
+        setStationName(matchedStation?.name ?? '');
+
+        setDish(dishRow);
+        setStats(dishStats);
+        setComments(dishComments);
+      } catch (err) {
+        console.error('Failed to load dish', err);
+        setError('Could not load dish details right now.');
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [hallId, stationId, dishId]);
 
-  function handleComment(event) {
+  async function handleComment(event) {
     event.preventDefault();
     if (!dish || !body.trim()) return;
-    const newComment = {
-      id: `${dish.id}-comment-${Date.now()}`,
-      author: 'Anonymous',
-      timestamp: 'Just now',
-      body: body.trim()
-    };
-    setComments((prev) => [newComment, ...prev]);
-    setBody('');
+    try {
+      setError('');
+      await addComment(dish.id, body.trim());
+      setComments((prev) => [
+        {
+          id: `local-${Date.now()}`,
+          user_id: null,
+          dish_id: dish.id,
+          body: body.trim(),
+          created_at: new Date().toISOString()
+        },
+        ...prev
+      ]);
+      setBody('');
+    } catch (err) {
+      console.error('Failed to add comment', err);
+      setError('Please sign in to post comments.');
+    }
   }
 
-  const hall = hallId ? getHall(hallId) : null;
-  const station = hall && stationId ? getStation(hallId, stationId) : null;
+  const ratingText =
+    stats.count > 0 ? `${stats.avg.toFixed(1)} (${stats.count} rating${stats.count === 1 ? '' : 's'})` : 'No ratings yet';
 
-  if (attemptedLoad && (!dish || !hall || !station)) {
-    return (
-      <Box p={{ base: 4, md: 10 }} maxW="1100px" mx="auto">
-        <Heading size="lg" mb={2}>
-          UBC Rate My Dish
-        </Heading>
-        <Text color="gray.500">Dish not found.</Text>
-        <Button mt={4} as={Link} to="/" variant="ghost">
-          ← Back home
-        </Button>
-      </Box>
-    );
-  }
-
-  if (!dish || !hall || !station) {
+  if (loading) {
     return (
       <Box p={6}>
         <Text>Loading dish...</Text>
@@ -79,25 +110,46 @@ export default function DishPage() {
     );
   }
 
+  if (!dish) {
+    return (
+      <Box p={{ base: 4, md: 10 }} maxW="1100px" mx="auto">
+        <Heading size="lg" mb={2}>
+          UBC Rate My Dish
+        </Heading>
+        <Text color="gray.500">Dish not found.</Text>
+        <Button mt={4} as={Link} to="/" variant="ghost">
+          {'<- Back home'}
+        </Button>
+      </Box>
+    );
+  }
+
   return (
     <Box p={{ base: 4, md: 10 }} maxW="1100px" mx="auto">
+      {error && (
+        <Alert status="error" mb={4}>
+          <AlertIcon />
+          {error}
+        </Alert>
+      )}
+
       <Breadcrumb mb={4} fontSize="sm">
         <BreadcrumbItem>
           <BreadcrumbLink as={Link} to="/">
             Home
           </BreadcrumbLink>
         </BreadcrumbItem>
-        {hall && (
+        {hallId && (
           <BreadcrumbItem>
-            <BreadcrumbLink as={Link} to={`/hall/${hall.id}`}>
-              {hall.name}
+            <BreadcrumbLink as={Link} to={`/hall/${hallId}`}>
+              {hallName || hallId}
             </BreadcrumbLink>
           </BreadcrumbItem>
         )}
-        {station && (
+        {stationId && (
           <BreadcrumbItem>
-            <BreadcrumbLink as={Link} to={`/hall/${hall.id}`}>
-              {station.name}
+            <BreadcrumbLink as={Link} to={`/hall/${hallId}`}>
+              {stationName || 'Station'}
             </BreadcrumbLink>
           </BreadcrumbItem>
         )}
@@ -109,7 +161,7 @@ export default function DishPage() {
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8}>
         <Box>
           <Image
-            src={dish.image}
+            src={dish.image || 'https://placehold.co/600x400?text=Dish+Image'}
             alt={dish.name}
             borderRadius="xl"
             objectFit="cover"
@@ -122,27 +174,17 @@ export default function DishPage() {
             {dish.name}
           </Heading>
           <Text color="gray.600" mb={2}>
-            {station?.name} – {hall?.name}
+            {stationName || 'Station'} - {hallName || 'Hall'}
           </Text>
-          <Text fontSize="2xl" fontWeight="bold" color="purple.600" mb={1}>
-            {dish.rating.toFixed(1)}/10
+          <Text fontSize="lg" fontWeight="bold" color="purple.600" mb={1}>
+            {ratingText}
           </Text>
-          <Text color="gray.500" mb={4}>
-            Part of the {hall.name} menu
-          </Text>
-          <Stack direction="row" spacing={2} mb={4}>
-            {dish.tags.map((tag) => (
-              <Badge key={tag} colorScheme="purple">
-                {tag}
-              </Badge>
-            ))}
-          </Stack>
-          <Text color="gray.800">{dish.description}</Text>
+          <Text color="gray.800">{dish.description || 'No description yet.'}</Text>
         </Box>
 
         <Box>
           <Heading size="md" mb={4}>
-            COMMENTS
+            Comments
           </Heading>
           <Box borderWidth="1px" borderRadius="lg" p={4} mb={4} maxH="320px" overflowY="auto">
             {comments.length === 0 ? (
@@ -152,33 +194,14 @@ export default function DishPage() {
                 {comments.map((comment) => (
                   <CommentItem
                     key={comment.id}
-                    username={comment.author}
-                    timestamp={comment.timestamp}
+                    username={comment.user_id || 'Anonymous'}
+                    timestamp={comment.created_at || 'Just now'}
                     text={comment.body}
                   />
                 ))}
               </VStack>
             )}
           </Box>
-          <HStack justify="center" spacing={2} mb={5} color="gray.600">
-            <Text>&lt;</Text>
-            {[1, 2, 3, 4].map((page) => (
-              <Box
-                key={page}
-                px={2}
-                py={1}
-                borderWidth="1px"
-                borderRadius="md"
-                fontSize="sm"
-                minW="32px"
-                textAlign="center"
-              >
-                {page}
-              </Box>
-            ))}
-            <Text>…</Text>
-            <Text>&gt;</Text>
-          </HStack>
 
           <Box borderWidth="1px" borderRadius="lg" p={4} bg="gray.50">
             <Heading size="sm" mb={3}>
@@ -190,7 +213,7 @@ export default function DishPage() {
                 <Textarea
                   value={body}
                   onChange={(event) => setBody(event.target.value)}
-                  placeholder="Front-end only for now… tell others what you thought!"
+                  placeholder="Tell others what you thought!"
                   rows={4}
                 />
               </FormControl>

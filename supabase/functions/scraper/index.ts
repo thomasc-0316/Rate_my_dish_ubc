@@ -141,74 +141,64 @@ type Station = { station: string; dishes: Dish[] };
  * @returns An array of stations with their dishes
  */
 function collectStationsFromJson(json: any): Station[] {
-  const stations: Station[] = [];
+  const stationsByName: Record<string, Dish[]> = {};
 
-  // Helper to extract description safely
-  const extractDescription = (food: any) => {
-    if (!food) return undefined;
-    if (typeof food.description === 'string' && food.description.trim()) {
-      return food.description.trim();
+  const stationsMap: Record<string, Dish[]> = {};
+
+  if (!json || !Array.isArray(json.days)) return [];
+
+  // 1. Build map menu_id -> station display name (e.g. "93728" -> "Grillhouse")
+  const stationNameByMenuId: Record<string, string> = {};
+  for (const day of json.days) {
+    if (!day || typeof day !== 'object') continue;
+    const menuInfo = (day as any).menu_info;
+    if (!menuInfo || typeof menuInfo !== 'object') continue;
+
+    for (const [menuId, info] of Object.entries(menuInfo)) {
+      const displayName = (info as any)?.section_options?.display_name;
+      if (typeof displayName === 'string' && displayName.trim()) {
+        stationNameByMenuId[menuId] = displayName.trim();
+      }
     }
-    return undefined;
-  };
-
-  // Expected structure of menu items
-  interface MenuItem {
-    id?: number | null;
-    station?: {
-      name?: string;
-    };
-    food?: {
-      name?: string;
-      description?: string;
-    };
   }
 
-  // Parses menu items into stations and dishes
-  const parseMenuItems = (menuItems: MenuItem[]): Station[] => {
-    const byStation: Record<string, Dish[]> = {};
+  const extractDescription = (food: any) =>
+    food && typeof food.description === 'string' && food.description.trim()
+      ? food.description.trim()
+      : undefined;
+
+  // 2. Walk menu_items and group dishes by station
+  for (const day of json.days) {
+    const menuItems = (day as any).menu_items;
+    if (!Array.isArray(menuItems)) continue;
 
     for (const item of menuItems) {
       if (!item || typeof item !== 'object') continue;
-      if (!item.food || !item.food.name) continue;
 
-      const stationName = item.station?.name?.trim() || 'General';
-      const id = item.id ?? null;
-      const name = String(item.food.name).trim();
-      const description = extractDescription(item.food);
+      const food = (item as any).food;
+      if (!food || !food.name) continue;
 
+      const menuIdRaw = (item as any).menu_id;
+      const menuId = menuIdRaw != null ? String(menuIdRaw) : '';
+      const stationName =
+        (menuId && stationNameByMenuId[menuId]) || 'General';
+
+      const id =
+        typeof item.id === 'number' ? item.id : null;
+      const name = String(food.name).trim();
+      const description = extractDescription(food);
       if (!name) continue;
 
-      if (!byStation[stationName]) byStation[stationName] = []; // Initialize station if not present
-      byStation[stationName].push({ id, name, description }); // Add dish to station
+      if (!stationsMap[stationName]) stationsMap[stationName] = [];
+      stationsMap[stationName].push({ id, name, description });
     }
-    return Object.entries(byStation).map(([station, dishes]) => ({ station, dishes })); // Convert to Station array
-  };
+  }
 
-  // Recursive walk through the JSON structure to find arrays of menu items
-  const walk = (node: any) => {
-    if (!node) return;
-    if (Array.isArray(node)) { // Found an array, check for menu items
-      const before = stations.length;
-      parseMenuItems(node);
-      if (stations.length > before) return; // Stop if found stations
-      node.forEach(walk);
-      return;
-    }
-    if (typeof node === 'object') {
-      Object.values(node).forEach(walk);
-    }
-  };
-
-  walk(json);
-
-  // Remove duplicate stations
-  const seen = new Set<string>();
-  return stations.filter((s) => {
-    if (seen.has(s.station)) return false;
-    seen.add(s.station);
-    return true;
-  });
+  // 3. Convert map -> Station[]
+  return Object.entries(stationsMap).map(([station, dishes]) => ({
+    station,
+    dishes,
+  }));
 }
 
 /**

@@ -12,6 +12,57 @@
 // - Aggregates all three meals (breakfast/lunch/dinner) for the requested date.
 // - Idempotent per day: existing rows are re-used by slug/name matches.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// Type definitions
+type Meal = 'breakfast' | 'lunch' | 'dinner';
+type HallSlug = 'feast' | 'gather' | 'open-kitchen';
+type NutrisliceMenuInfo = Record<string, {
+  section_options?: {
+    display_name?: string;
+  };
+}>;
+type NutrisliceMenuItem = {
+  id?: number;
+  menu_id?: string | number | null;
+  food?: {
+    name?: string;
+    description?: string;
+  };
+};
+type NutrisliceDay = {
+  date?: string;
+  menu_info?: NutrisliceMenuInfo;
+  menu_items?: NutrisliceMenuItem[];
+};
+type NutrisliceResponse = {
+  days?: NutrisliceDay[];
+};
+type ScrapedDish = {
+  name: string;
+  description: string | null;
+};
+type ScrapedStation = {
+  slug: string;
+  name: string;
+  dishes: ScrapedDish[];
+};
+type ScrapedHall = {
+  slug: HallSlug;
+  name: string;
+  stations: ScrapedStation[];
+};
+type ScrapedMenuEntry = {
+  hallSlug: HallSlug;
+  stationSlug: string;
+  meal: Meal;
+  dishName: string;
+};
+type ScrapeResult = {
+  hall: ScrapedHall;
+  menuEntries: ScrapedMenuEntry[];
+};
+
+// Load environment variables
 const SUPABASE_URL = Deno.env.get('URL') ?? '';
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SERVICE_ROLE_KEY') ?? '';
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -25,7 +76,10 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
 });
 // Nutrislice base and verified endpoints
 const NS_BASE = 'https://ubc.api.nutrislice.com/menu/api/weeks/school';
-const ENDPOINTS = {
+const ENDPOINTS: Record<HallSlug, Record<Meal, {
+  school: string;
+  menuType: string;
+}>> = {
   feast: {
     breakfast: {
       school: 'ubc-feast-totem-park-residence',
@@ -69,32 +123,47 @@ const ENDPOINTS = {
     }
   }
 };
+
 // Human-readable hall names
-const HALL_NAMES = {
+const HALL_NAMES: Record<HallSlug, string> = {
   feast: 'Feast',
   gather: 'Gather',
   'open-kitchen': 'Open Kitchen'
 };
-const MEALS = [
+const MEALS: Meal[] = [
   'breakfast',
   'lunch',
   'dinner'
 ];
+
 // date helpers
-const toISODate = (d = new Date())=>d.toISOString().slice(0, 10); // YYYY-MM-DD
-const toPathDate = (iso)=>{
+const toISODate = (d: Date = new Date())=>d.toISOString().slice(0, 10); // YYYY-MM-DD
+const toPathDate = (iso: string)=>{
   const [y, m, d] = iso.split('-');
   return `${y}/${m}/${d}`;
 };
 // converts string to slug format
-const slugify = (value)=>value.toLowerCase().trim().replace(/['"]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+const slugify = (value: string)=>value.toLowerCase().trim().replace(/['"]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+/**
+ * Filters the Nutrislice response to only include data for the specified date.
+ * @param json - The original Nutrislice response
+ * @param isoDate - The date in ISO format (YYYY-MM-DD)
+ * @returns The filtered Nutrislice response
+ */
+function filterDaysForDate(json: NutrisliceResponse, isoDate: string): NutrisliceResponse {
+  if (!json || !Array.isArray(json.days)) return json;
+  return {
+    ...json,
+    days: json.days.filter((d)=>d?.date === isoDate)
+  };
+}
 /**
  * Builds the Nutrislice menu URL for a given hall, meal, and date.
  * @param hall - The hall slug
  * @param meal - The meal type
  * @param isoDate - The date in ISO format (YYYY-MM-DD)
  * @returns The constructed URL
- */ function buildUrl(hall, meal, isoDate) {
+ */ function buildUrl(hall: HallSlug, meal: Meal, isoDate: string): string {
   const { school, menuType } = ENDPOINTS[hall][meal];
   return `${NS_BASE}/${school}/menu-type/${menuType}/${toPathDate(isoDate)}/?format=json`;
 }
@@ -103,7 +172,7 @@ const slugify = (value)=>value.toLowerCase().trim().replace(/['"]/g, '').replace
  * @param url - The URL to fetch data from
  * @returns The parsed JSON data
  * @throws Error if the fetch fails
- */ async function fetchJson(url) {
+ */ async function fetchJson(url: string): Promise<NutrisliceResponse> {
   const res = await fetch(url, {
     headers: {
       accept: 'application/json'
@@ -116,12 +185,15 @@ const slugify = (value)=>value.toLowerCase().trim().replace(/['"]/g, '').replace
  * Recursively collects stations and their dishes from a nested JSON structure.
  * @param json - The input JSON data
  * @returns An array of stations with their dishes
- */ function collectStationsFromJson(json) {
-  const stationsByName = {};
-  const stationsMap = {};
+ */ function collectStationsFromJson(json: NutrisliceResponse) {
+  const stationsMap: Record<string, {
+    id: number | null;
+    name: string;
+    description?: string;
+  }[]> = {};
   if (!json || !Array.isArray(json.days)) return [];
   // 1. Build map menu_id -> station display name (e.g. "93728" -> "Grillhouse")
-  const stationNameByMenuId = {};
+  const stationNameByMenuId: Record<string, string> = {};
   for (const day of json.days){
     if (!day || typeof day !== 'object') continue;
     const menuInfo = day.menu_info;
@@ -133,7 +205,7 @@ const slugify = (value)=>value.toLowerCase().trim().replace(/['"]/g, '').replace
       }
     }
   }
-  const extractDescription = (food)=>food && typeof food.description === 'string' && food.description.trim() ? food.description.trim() : undefined;
+  const extractDescription = (food: NutrisliceMenuItem['food'])=>food && typeof food.description === 'string' && food.description.trim() ? food.description.trim() : undefined;
   // 2. Walk menu_items and group dishes by station
   for (const day of json.days){
     const menuItems = day.menu_items;
@@ -168,20 +240,28 @@ const slugify = (value)=>value.toLowerCase().trim().replace(/['"]/g, '').replace
  * @param hall - The hall slug
  * @param isoDate - The date in ISO format (YYYY-MM-DD)
  * @returns The scraped hall data
- */ async function scrapeHallForDate(hall, isoDate) {
-  const stationsBySlug = new Map();
-  for (const meal of MEALS){
-    //Build URL for hall and mealtime
+ */ async function scrapeHallForDate(hall: HallSlug, isoDate: string): Promise<ScrapeResult> {
+  const mealFetches = MEALS.map(async (meal): Promise<{ meal: Meal; json: NutrisliceResponse } | null>=>{
     const url = buildUrl(hall, meal, isoDate);
-    let json;
     console.log('fetching', hall, meal, url);
-    // Fetch JSON
     try {
-      json = await fetchJson(url);
+      const json = await fetchJson(url);
+      return {
+        meal,
+        json
+      };
     } catch (err) {
       console.error(`Failed fetch for ${hall} ${meal} ${isoDate}`, err);
-      continue;
+      return null;
     }
+  });
+  const results = await Promise.all(mealFetches);
+  const stationsBySlug = new Map<string, ScrapedStation>();
+  const menuEntries: ScrapedMenuEntry[] = [];
+  const menuEntryKeys = new Set<string>();
+  for (const result of results){
+    if (!result) continue;
+    const json = filterDaysForDate(result.json, isoDate);
     // Collect stations from JSON
     const stations = collectStationsFromJson(json);
     for (const st of stations){
@@ -207,123 +287,174 @@ const slugify = (value)=>value.toLowerCase().trim().replace(/['"]/g, '').replace
             description: d.description ?? null
           });
         }
+        const entryKey = `${result.meal}::${slug}::${d.name.toLowerCase()}`;
+        if (!menuEntryKeys.has(entryKey)) {
+          menuEntryKeys.add(entryKey);
+          menuEntries.push({
+            hallSlug: hall,
+            stationSlug: slug,
+            meal: result.meal,
+            dishName: d.name
+          });
+        }
       }
     }
   }
   return {
-    slug: hall,
-    name: HALL_NAMES[hall],
-    stations: Array.from(stationsBySlug.values())
+    hall: {
+      slug: hall,
+      name: HALL_NAMES[hall],
+      stations: Array.from(stationsBySlug.values())
+    },
+    menuEntries
   };
-}
-/**
- * Gets or creates a dining hall by slug.
- * @param slug - The hall slug
- * @param name - The hall name
- * @returns The hall ID
- */ async function getOrCreateHallId(slug, name) {
-  // Check if hall exists
-  const { data, error } = await supabase.from('dining_halls').select('id').eq('slug', slug).maybeSingle();
-  if (error) throw error;
-  if (data?.id) return data.id;
-  // Insert new hall
-  const { data: inserted, error: insertError } = await supabase.from('dining_halls').insert({
-    slug,
-    name
-  }).select('id').single();
-  if (insertError) throw insertError;
-  return inserted.id;
-}
-/**
- * Gets or creates a station by hall ID and slug.
- * @param hallId - The dining hall ID
- * @param slug - The station slug
- * @param name - The station name
- * @returns The station ID
- */ async function getOrCreateStationId(hallId, slug, name) {
-  // Check if station exists
-  const { data, error } = await supabase.from('stations').select('id').eq('hall_id', hallId).eq('slug', slug).maybeSingle();
-  if (error) throw error;
-  if (data?.id) return data.id;
-  // Insert new station
-  const { data: inserted, error: insertError } = await supabase.from('stations').insert({
-    hall_id: hallId,
-    slug,
-    name
-  }).select('id').single();
-  if (insertError) throw insertError;
-  return inserted.id;
-}
-/**
- * Upserts a dish by station ID and name.
- * @param stationId 
- * @param name 
- * @param description 
- * @returns the dish ID
- */ async function upsertDish(stationId, name, description) {
-  // Check if dish exists
-  const { data, error } = await supabase.from('dishes').select('id').eq('station_id', stationId).eq('name', name).maybeSingle();
-  if (error) throw error;
-  if (data?.id) {
-    // Update description if we have a new one
-    if (description) {
-      await supabase.from('dishes').update({
-        description
-      }).eq('id', data.id);
-    }
-    return data.id;
-  }
-  // Insert new dish
-  const { data: inserted, error: insertError } = await supabase.from('dishes').insert({
-    station_id: stationId,
-    name,
-    description: description ?? null
-  }).select('id').single();
-  if (insertError) throw insertError;
-  return inserted.id;
 }
 /**
  * Upserts scraped data into the database.
  * @param halls - The array of scraped halls
  * @returns Summary counts of inserted/updated records
- */ async function upsertScrapedData(halls) {
-  let hallsCount = 0;
-  let stationsCount = 0;
-  let dishesCount = 0;
-  // Process each hall
+ */
+async function upsertScrapedData(results: ScrapeResult[], isoDate: string) {
+  const halls = results.map((r)=>r.hall);
+  // 1) Halls (unique on slug)
+  const hallPayload: { slug: HallSlug; name: string }[] = halls.map((hall)=>({
+      slug: hall.slug,
+      name: hall.name
+    }));
+  const { data: hallRows, error: hallError } = await supabase.from('dining_halls').upsert(hallPayload, {
+    onConflict: 'slug'
+  }).select('id, slug');
+  if (hallError) throw hallError;
+  const hallIdBySlug = new Map<HallSlug, number>((hallRows ?? []).map((row: { slug: HallSlug; id: number })=>[
+    row.slug,
+    row.id
+  ]));
+  // 2) Stations (unique on hall_id,slug)
+  const stationPayload: {
+    hall_id: number;
+    slug: string;
+    name: string;
+  }[] = [];
+  const stationKeys = new Set<string>();
   for (const hall of halls){
-    const hallId = await getOrCreateHallId(hall.slug, hall.name);
-    hallsCount += 1;
+    const hallId = hallIdBySlug.get(hall.slug);
+    if (!hallId) continue;
     for (const station of hall.stations){
-      const stationId = await getOrCreateStationId(hallId, station.slug, station.name);
-      stationsCount += 1;
+      const key = `${hallId}::${station.slug}`;
+      if (stationKeys.has(key)) continue;
+      stationKeys.add(key);
+      stationPayload.push({
+        hall_id: hallId,
+        slug: station.slug,
+        name: station.name
+      });
+    }
+  }
+  const { data: stationRows, error: stationError } = await supabase.from('stations').upsert(stationPayload, {
+    onConflict: 'hall_id,slug'
+  }).select('id, slug, hall_id');
+  if (stationError) throw stationError;
+  const stationIdByKey = new Map<string, number>((stationRows ?? []).map((row: { hall_id: number; slug: string; id: number })=>[
+    `${row.hall_id}::${row.slug}`,
+    row.id
+  ]));
+  // 3) Dishes (requires a unique constraint on station_id,name)
+  const dishPayload: {
+    station_id: number;
+    name: string;
+    description: string | null;
+  }[] = [];
+  const dishKeys = new Set<string>();
+  for (const hall of halls){
+    const hallId = hallIdBySlug.get(hall.slug);
+    if (!hallId) continue;
+    for (const station of hall.stations){
+      const stationKey = `${hallId}::${station.slug}`;
+      const stationId = stationIdByKey.get(stationKey);
+      if (!stationId) continue;
       for (const dish of station.dishes){
-        await upsertDish(stationId, dish.name, dish.description ?? null);
-        dishesCount += 1;
+        const key = `${stationId}::${dish.name.toLowerCase()}`;
+        if (dishKeys.has(key)) continue;
+        dishKeys.add(key);
+        dishPayload.push({
+          station_id: stationId,
+          name: dish.name,
+          description: dish.description ?? null
+        });
       }
     }
   }
+  if (dishPayload.length){
+    const { error: dishError } = await supabase.from('dishes').upsert(dishPayload, {
+      onConflict: 'station_id,name'
+    });
+    if (dishError) throw dishError;
+  }
+  // Build dish id lookup (covers both newly upserted and existing dishes)
+  const stationIds = Array.from(new Set(Array.from(stationIdByKey.values())));
+  let dishIdByKey = new Map<string, number>();
+  if (stationIds.length){
+    const { data: allDishes, error: dishesSelectError } = await supabase.from('dishes').select('id, station_id, name').in('station_id', stationIds);
+    if (dishesSelectError) throw dishesSelectError;
+    dishIdByKey = new Map<string, number>((allDishes ?? []).map((row)=>[
+      `${row.station_id}::${row.name.toLowerCase()}`,
+      row.id as number
+    ]));
+  }
+  // 4) Menu entries for this date/meal
+  const menuEntryPayload: {
+    date: string;
+    meal: Meal;
+    hall_id: number;
+    station_id: number;
+    dish_id: number;
+  }[] = [];
+  const menuEntryKeys = new Set<string>();
+  for (const res of results){
+    const hallId = hallIdBySlug.get(res.hall.slug);
+    if (!hallId) continue;
+    for (const entry of res.menuEntries){
+      const stationId = stationIdByKey.get(`${hallId}::${entry.stationSlug}`);
+      if (!stationId) continue;
+      const dishId = dishIdByKey.get(`${stationId}::${entry.dishName.toLowerCase()}`);
+      if (!dishId) continue;
+      const key = `${isoDate}::${entry.meal}::${stationId}::${dishId}`;
+      if (menuEntryKeys.has(key)) continue;
+      menuEntryKeys.add(key);
+      menuEntryPayload.push({
+        date: isoDate,
+        meal: entry.meal,
+        hall_id: hallId,
+        station_id: stationId,
+        dish_id: dishId
+      });
+    }
+  }
+  if (menuEntryPayload.length){
+    const { error: menuError } = await supabase.from('menu_entries').upsert(menuEntryPayload, {
+      onConflict: 'date,meal,station_id,dish_id'
+    });
+    if (menuError) throw menuError;
+  }
   return {
-    hallsCount,
-    stationsCount,
-    dishesCount
+    hallsCount: hallPayload.length,
+    stationsCount: stationPayload.length,
+    dishesCount: dishPayload.length,
+    menuEntriesCount: menuEntryPayload.length
   };
 }
 /**
  * Main entry point for the Supabase Edge Function.
  * Accepts an optional 'date' query parameter (YYYY-MM-DD).
  * Scrapes menus for all halls and upserts data into the database.
- */ Deno.serve(async (req)=>{
+ */ Deno.serve(async (req: Request)=>{
   const url = new URL(req.url);
   const dateParam = url.searchParams.get('date');
   const date = dateParam || toISODate();
   try {
-    const halls = [];
-    for (const hallSlug of Object.keys(HALL_NAMES)){
-      const scraped = await scrapeHallForDate(hallSlug, date);
-      halls.push(scraped);
-    }
-    const summary = await upsertScrapedData(halls);
+    const hallSlugs = Object.keys(HALL_NAMES) as HallSlug[];
+    const scrapeResults = await Promise.all(hallSlugs.map((hallSlug)=>scrapeHallForDate(hallSlug, date)));
+    const summary = await upsertScrapedData(scrapeResults, date);
     return new Response(JSON.stringify({
       ok: true,
       date,
@@ -336,9 +467,10 @@ const slugify = (value)=>value.toLowerCase().trim().replace(/['"]/g, '').replace
     });
   } catch (err) {
     console.error(err);
+    const message = err instanceof Error ? err.message : String(err);
     return new Response(JSON.stringify({
       ok: false,
-      error: err.message
+      error: message
     }, null, 2), {
       status: 500,
       headers: {

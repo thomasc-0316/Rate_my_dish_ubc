@@ -9,11 +9,11 @@ export default function DishListItem({ dish, hallId, stationId }) {
   const ratingColor =
     rating == null
       ? 'gray.500'
-      : rating >= 8
-        ? 'success.500'
-        : rating >= 6
-          ? 'warning.500'
-          : 'danger.500';
+      : rating >= 4
+        ? 'green.500'
+        : rating >= 3
+          ? 'yellow.500'
+          : 'red.500';
 
   return (
     <Flex
@@ -43,7 +43,7 @@ export default function DishListItem({ dish, hallId, stationId }) {
         </HStack>
       </Box>
       <Text fontWeight="semibold" color={ratingColor}>
-        {rating ? `${rating.toFixed(1)}/10` : 'No ratings yet'}
+        {rating ? `${rating.toFixed(1)}/5` : 'No ratings yet'}
       </Text>
     </Flex>
   );

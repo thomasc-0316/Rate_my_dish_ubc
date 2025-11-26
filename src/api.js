@@ -38,9 +38,29 @@ export async function listStations(hallSlug) {
 }
 
 export async function listDishes(stationId) {
-  const { data, error } = await supabase.from('dishes').select('*').eq('station_id', stationId).order('name');
+  const { data, error } = await supabase
+    .from('dishes')
+    .select('id, station_id, name, description, ratings(score)')
+    .eq('station_id', stationId)
+    .order('name');
   if (error) throw error;
-  return data ?? [];
+
+  return (data ?? []).map((row) => {
+    const scores = Array.isArray(row.ratings)
+      ? row.ratings.map((r) => r?.score).filter((s) => typeof s === 'number')
+      : [];
+    const count = scores.length;
+    const total = scores.reduce((sum, s) => sum + s, 0);
+    const avg = count ? total / count : null;
+    return {
+      id: row.id,
+      station_id: row.station_id,
+      name: row.name,
+      description: row.description,
+      rating: avg,
+      rating_count: count
+    };
+  });
 }
 
 export async function getDish(dishId) {

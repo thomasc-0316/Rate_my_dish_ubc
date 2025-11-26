@@ -42,6 +42,9 @@ export default function DishPage() {
   const [stationName, setStationName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [ratingValue, setRatingValue] = useState(null);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState('');
   const imageUrl = useDishImage(dish);
   const formatName = (name) =>
     typeof name === 'string' ? name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : '';

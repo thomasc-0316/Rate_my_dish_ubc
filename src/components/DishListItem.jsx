@@ -42,8 +42,6 @@ export default function DishListItem({ dish, hallId, stationId }) {
         />
       )}
       <Box flex="1">
-        <Heading size="sm">{dish.name}</Heading>
-      <Box>
         <Heading size="sm">{displayName}</Heading>
         {dish.description && (
           <Text fontSize="sm" color="gray.600" mt={1} noOfLines={2}>

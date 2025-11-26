@@ -228,7 +228,7 @@ export default function DishPage() {
                   key={score}
                   size="sm"
                   variant={ratingValue === score ? 'solid' : 'outline'}
-                  colorScheme="purple"
+                  colorScheme="brand"
                   onClick={() => setRatingValue(score)}
                 >
                   {score}
@@ -237,7 +237,7 @@ export default function DishPage() {
             </HStack>
             <Button
               size="sm"
-              colorScheme="purple"
+              colorScheme="brand"
               onClick={handleRating}
               isDisabled={!ratingValue}
               isLoading={ratingSubmitting}

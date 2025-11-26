@@ -1,8 +1,10 @@
-import { Badge, Box, Flex, Heading, HStack, Text } from '@chakra-ui/react';
+import { Badge, Box, Flex, Heading, HStack, Text, Image } from '@chakra-ui/react';
 import { Link } from 'react-router-dom';
+import { useDishImage } from '../hooks/useDishImage';
 
 export default function DishListItem({ dish, hallId, stationId }) {
   const rating = typeof dish.rating === 'number' ? dish.rating : null;
+  const imageUrl = useDishImage(dish);
   const formatName = (name) =>
     typeof name === 'string' ? name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : '';
   const displayName = formatName(dish.name);
@@ -20,13 +22,27 @@ export default function DishListItem({ dish, hallId, stationId }) {
       as={Link}
       to={`/hall/${hallId}/station/${stationId}/dish/${dish.id}`}
       align="center"
-      justify="space-between"
+      gap={4}
       p={3}
       borderWidth="1px"
       borderRadius="md"
       bg="white"
       _hover={{ boxShadow: 'md' }}
     >
+      {imageUrl && (
+        <Image
+          src={imageUrl}
+          alt={dish.name}
+          borderRadius="md"
+          objectFit="cover"
+          w="80px"
+          h="80px"
+          flexShrink={0}
+          fallbackSrc="https://placehold.co/80x80?text=Dish"
+        />
+      )}
+      <Box flex="1">
+        <Heading size="sm">{dish.name}</Heading>
       <Box>
         <Heading size="sm">{displayName}</Heading>
         {dish.description && (

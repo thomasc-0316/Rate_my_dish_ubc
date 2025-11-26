@@ -29,6 +29,7 @@ import {
 } from '../api';
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 import CommentItem from '../components/CommentItem';
+import { useDishImage } from '../hooks/useDishImage';
 
 export default function DishPage() {
   const { hallId = '', stationId = '', dishId = '' } = useParams();
@@ -41,9 +42,7 @@ export default function DishPage() {
   const [stationName, setStationName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [ratingValue, setRatingValue] = useState(null);
-  const [ratingSubmitting, setRatingSubmitting] = useState(false);
-  const [ratingMessage, setRatingMessage] = useState('');
+  const imageUrl = useDishImage(dish);
   const formatName = (name) =>
     typeof name === 'string' ? name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : '';
 
@@ -199,7 +198,7 @@ export default function DishPage() {
       <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={8}>
         <Box>
           <Image
-            src={dish.image || 'https://placehold.co/600x400?text=Dish+Image'}
+            src={imageUrl || 'https://placehold.co/600x400?text=Dish+Image'}
             alt={dish.name}
             borderRadius="xl"
             objectFit="cover"

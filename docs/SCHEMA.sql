@@ -19,7 +19,8 @@ create table if not exists dishes (
   id bigserial primary key,
   station_id bigint not null references stations(id) on delete cascade,
   name text not null,
-  description text
+  description text,
+  image_url text
 );
 
 -- Ratings one per (user,dish).

@@ -22,16 +22,19 @@ import {
 } from '@chakra-ui/react';
 import {
   addComment,
+  addOrUpdateRating,
   getDish,
   getDishStats,
   listComments,
   listHalls,
   listStations
 } from '../api';
+import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 import CommentItem from '../components/CommentItem';
 
 export default function DishPage() {
   const { hallId = '', stationId = '', dishId = '' } = useParams();
+  const { user } = useSupabaseAuth();
   const [dish, setDish] = useState(null);
   const [comments, setComments] = useState([]);
   const [body, setBody] = useState('');
@@ -40,6 +43,9 @@ export default function DishPage() {
   const [stationName, setStationName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [ratingValue, setRatingValue] = useState(null);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -101,6 +107,29 @@ export default function DishPage() {
 
   const ratingText =
     stats.count > 0 ? `${stats.avg.toFixed(1)} (${stats.count} rating${stats.count === 1 ? '' : 's'})` : 'No ratings yet';
+
+  async function handleRating() {
+    if (!dish || !ratingValue) return;
+    if (!user) {
+      setError('Please sign in to rate dishes.');
+      return;
+    }
+    try {
+      setRatingSubmitting(true);
+      setError('');
+      setRatingMessage('');
+      await addOrUpdateRating(dish.id, ratingValue);
+      const updatedStats = await getDishStats(dish.id);
+      setStats(updatedStats);
+      setRatingValue(null);
+      setRatingMessage('Thanks for rating!');
+    } catch (err) {
+      console.error('Failed to submit rating', err);
+      setError('Could not submit rating right now.');
+    } finally {
+      setRatingSubmitting(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -180,6 +209,43 @@ export default function DishPage() {
             {ratingText}
           </Text>
           <Text color="gray.800">{dish.description || 'No description yet.'}</Text>
+          <Box mt={5}>
+            <Text fontWeight="semibold" mb={2}>
+              Rate this dish
+            </Text>
+            <HStack spacing={2} mb={2}>
+              {[1, 2, 3, 4, 5].map((score) => (
+                <Button
+                  key={score}
+                  size="sm"
+                  variant={ratingValue === score ? 'solid' : 'outline'}
+                  colorScheme="purple"
+                  onClick={() => setRatingValue(score)}
+                >
+                  {score}
+                </Button>
+              ))}
+            </HStack>
+            <Button
+              size="sm"
+              colorScheme="purple"
+              onClick={handleRating}
+              isDisabled={!ratingValue}
+              isLoading={ratingSubmitting}
+            >
+              Submit rating
+            </Button>
+            {ratingMessage ? (
+              <Text color="green.600" fontSize="sm" mt={2}>
+                {ratingMessage}
+              </Text>
+            ) : null}
+            {!user ? (
+              <Text color="gray.600" fontSize="sm" mt={2}>
+                Sign in to submit a rating.
+              </Text>
+            ) : null}
+          </Box>
         </Box>
 
         <Box>

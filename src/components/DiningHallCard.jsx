@@ -7,10 +7,13 @@ export default function DiningHallCard({ hallId, name, logo, accentColor = 'whit
   return (
     <Box
       borderWidth="1px"
-      borderRadius="xl"
+      borderColor="gray.200"
+      borderRadius="lg"
       p={4}
+      bg="surface.50"
+      boxShadow="sm"
       transition="transform 0.2s ease, box-shadow 0.2s ease"
-      _hover={{ transform: 'scale(1.05)', boxShadow: 'lg' }}
+      _hover={{ transform: 'translateY(-3px)', boxShadow: 'md' }}
       onClick={() => navigate(`/hall/${hallId}`)}
       cursor="pointer"
     >

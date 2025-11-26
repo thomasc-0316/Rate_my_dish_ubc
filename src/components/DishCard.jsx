@@ -2,9 +2,11 @@ import { Box, Heading, Text } from '@chakra-ui/react';
 import { Link } from 'react-router-dom';
 
 export default function DishCard({ dish, stats }) {
+  const displayName =
+    dish && typeof dish.name === 'string' ? dish.name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : '';
   return (
     <Box as={Link} to={`/dishes/${dish.id}`} borderWidth="1px" borderRadius="md" p={4}>
-      <Heading size="md">{dish.name}</Heading>
+      <Heading size="md">{displayName}</Heading>
       <Text fontSize="sm" color="gray.600">
         {dish.description || 'No description yet.'}
       </Text>

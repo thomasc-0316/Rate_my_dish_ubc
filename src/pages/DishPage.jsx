@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
-  Badge,
   Box,
   Breadcrumb,
   BreadcrumbItem,
@@ -12,7 +11,6 @@ import {
   Heading,
   Image,
   SimpleGrid,
-  Stack,
   Text,
   Textarea,
   VStack,
@@ -43,6 +41,9 @@ export default function DishPage() {
   const [stationName, setStationName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [ratingValue, setRatingValue] = useState(null);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState('');
   const formatName = (name) =>
     typeof name === 'string' ? name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : '';
 
@@ -110,11 +111,11 @@ export default function DishPage() {
   const ratingColor =
     stats.count === 0
       ? 'gray.600'
-      : stats.avg >= 8
-        ? 'success.500'
-        : stats.avg >= 6
-          ? 'warning.500'
-          : 'danger.500';
+      : stats.avg >= 4
+        ? 'green.500'
+        : stats.avg >= 3
+          ? 'yellow.500'
+          : 'red.500';
 
   async function handleRating() {
     if (!dish || !ratingValue) return;

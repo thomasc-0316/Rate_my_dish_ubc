@@ -38,6 +38,7 @@ export default function App() {
             <Route path="/assistant" element={<Assistant />}/>
           </Routes>
         </Box>
+        <Assistant />
       </BrowserRouter>
     </ChakraProvider>
   );

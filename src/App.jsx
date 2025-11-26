@@ -138,6 +138,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
           </Routes>
         </Box>
+        <Assistant />
       </BrowserRouter>
     </ChakraProvider>
   );

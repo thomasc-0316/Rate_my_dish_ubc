@@ -43,6 +43,9 @@ export default function DishPage() {
   const [stationName, setStationName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [ratingValue, setRatingValue] = useState(null);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingMessage, setRatingMessage] = useState('');
   const formatName = (name) =>
     typeof name === 'string' ? name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : '';
 
@@ -227,7 +230,7 @@ export default function DishPage() {
                   key={score}
                   size="sm"
                   variant={ratingValue === score ? 'solid' : 'outline'}
-                  colorScheme="purple"
+                  colorScheme="brand"
                   onClick={() => setRatingValue(score)}
                 >
                   {score}
@@ -236,7 +239,7 @@ export default function DishPage() {
             </HStack>
             <Button
               size="sm"
-              colorScheme="purple"
+              colorScheme="brand"
               onClick={handleRating}
               isDisabled={!ratingValue}
               isLoading={ratingSubmitting}

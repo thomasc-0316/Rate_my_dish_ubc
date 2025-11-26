@@ -34,10 +34,7 @@ export default function LeaderboardPage() {
   return (
     <Box p={{ base: 4, md: 10 }} maxW="900px" mx="auto">
       <Box display="flex" flexDir={{ base: 'column', md: 'row' }} justifyContent="space-between" mb={6}>
-        <Heading size="lg">UBC Rate My Dish</Heading>
-        <Text fontWeight="semibold" color="gray.600">
-          Leaderboard
-        </Text>
+        <Heading size="2xl">Leaderboard</Heading>
       </Box>
       <Text color="gray.600" mb={6}>
         {new Date().toLocaleDateString()} - Highest rated dishes across all halls
@@ -67,7 +64,7 @@ export default function LeaderboardPage() {
               entries.map((entry, index) => (
                 <Tr
                   key={entry.dishId}
-                  _hover={{ bg: entry.hallSlug ? 'purple.50' : undefined, cursor: entry.hallSlug ? 'pointer' : 'default' }}
+                  _hover={{ bg: entry.hallSlug ? 'brand.50' : undefined, cursor: entry.hallSlug ? 'pointer' : 'default' }}
                   onClick={() =>
                     entry.hallSlug &&
                     entry.stationId &&
@@ -84,9 +81,11 @@ export default function LeaderboardPage() {
                           : undefined
                       }
                       fontWeight="semibold"
-                      color="purple.700"
+                      color="brand.600"
                     >
-                      {entry.dishName}
+                      {typeof entry.dishName === 'string'
+                        ? entry.dishName.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase())
+                        : entry.dishName}
                     </Text>
                   </Td>
                   <Td>

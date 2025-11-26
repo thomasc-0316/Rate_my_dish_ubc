@@ -66,7 +66,7 @@ export default function LoginPage() {
           borderWidth="1px"
           onSubmit={handleSubmit}
         >
-          <Heading size="lg" color="purple.600">
+          <Heading size="lg" color="brand.600">
             Welcome to UBC Rate My Dish
           </Heading>
           <Text color="gray.600" textAlign="center">
@@ -131,7 +131,7 @@ export default function LoginPage() {
           />
           <Heading size="md">Hello, {displayName}!</Heading>
           <Text color="gray.600">{user.email}</Text>
-          <Button colorScheme="purple" onClick={handleLogout} isLoading={signingOut}>
+          <Button colorScheme="brand" onClick={handleLogout}>
             Log Out
           </Button>
         </VStack>

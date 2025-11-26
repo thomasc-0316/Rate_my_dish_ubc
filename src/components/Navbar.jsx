@@ -44,7 +44,16 @@ export default function Navbar() {
   };
 
   return (
-    <Box as="header" borderBottomWidth="1px" bg="white" position="sticky" top={0} zIndex={10}>
+    <Box
+      as="header"
+      borderBottomWidth="1px"
+      borderColor="gray.200"
+      bg="white"
+      position="sticky"
+      top={0}
+      zIndex={10}
+      boxShadow="sm"
+    >
       <Flex
         maxW="1200px"
         mx="auto"
@@ -58,13 +67,13 @@ export default function Navbar() {
           size="md"
           as={RouterLink}
           to="/"
-          _hover={{ textDecoration: 'none', color: 'purple.600' }}
+          _hover={{ textDecoration: 'none', color: 'brand.600' }}
           flexShrink={0}
         >
           UBC Rate My Dish
         </Heading>
         <HStack ml={{ base: 0, md: 'auto' }} spacing={3} flexWrap="wrap">
-          <Button as={RouterLink} to="/leaderboard" variant="ghost" color="orange.400">
+          <Button as={RouterLink} to="/leaderboard" variant="ghost" color="gray.700">
             Leaderboard
           </Button>
 
@@ -72,7 +81,7 @@ export default function Navbar() {
           <Menu placement="bottom-end">
             <MenuButton
               as={user ? IconButton : Button}
-              colorScheme="purple"
+              colorScheme="brand"
               variant={user ? "ghost" : "outline"}
               icon={
                 user ? (

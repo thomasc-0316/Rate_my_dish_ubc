@@ -8,6 +8,10 @@ export async function signInWithPassword(email, password) {
   return supabase.auth.signInWithPassword({ email, password });
 }
 
+export async function signUpWithEmail(email, password) {
+  return supabase.auth.signUp({ email, password });
+}
+
 export async function signOut() {
   return supabase.auth.signOut();
 }
@@ -84,4 +88,43 @@ export async function addComment(dishId, body) {
     user_id: userId,
     body
   });
+}
+
+export async function listLeaderboard(limit = 10) {
+  const { data: ratingRows, error: ratingsError } = await supabase.from('ratings').select('dish_id, score');
+  if (ratingsError) throw ratingsError;
+
+  const statsByDish = new Map();
+  for (const row of ratingRows ?? []) {
+    if (!row || row.dish_id == null || typeof row.score !== 'number') continue;
+    const existing = statsByDish.get(row.dish_id) ?? { total: 0, count: 0 };
+    statsByDish.set(row.dish_id, { total: existing.total + row.score, count: existing.count + 1 });
+  }
+
+  const dishIds = Array.from(statsByDish.keys());
+  if (!dishIds.length) return [];
+
+  const { data: dishRows, error: dishesError } = await supabase
+    .from('dishes')
+    .select('id, name, station_id, stations ( id, name, dining_halls ( id, name, slug ) )')
+    .in('id', dishIds);
+  if (dishesError) throw dishesError;
+
+  const entries = (dishRows ?? []).map((row) => {
+    const stats = statsByDish.get(row.id) ?? { total: 0, count: 0 };
+    const avg = stats.count ? stats.total / stats.count : 0;
+    const station = row.stations;
+    return {
+      dishId: row.id,
+      dishName: row.name,
+      stationId: station?.id ?? null,
+      stationName: station?.name ?? '',
+      hallName: station?.dining_halls?.name ?? '',
+      hallSlug: station?.dining_halls?.slug ?? '',
+      avg,
+      count: stats.count
+    };
+  });
+
+  return entries.sort((a, b) => b.avg - a.avg).slice(0, limit);
 }

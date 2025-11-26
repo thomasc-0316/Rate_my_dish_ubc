@@ -20,6 +20,7 @@ import {
 } from '@chakra-ui/react';
 import { getDish, getHall, getStation } from '../data/mockMenu';
 import CommentItem from '../components/CommentItem';
+import {addComment} from "../api";
 
 export default function DishPage() {
   const { hallId = '', stationId = '', dishId = '' } = useParams();
@@ -41,18 +42,32 @@ export default function DishPage() {
     setAttemptedLoad(true);
   }, [hallId, stationId, dishId]);
 
-  function handleComment(event) {
+// allow this to ping the API
+async function handleComment(event) {
     event.preventDefault();
     if (!dish || !body.trim()) return;
-    const newComment = {
-      id: `${dish.id}-comment-${Date.now()}`,
-      author: 'Anonymous',
-      timestamp: 'Just now',
-      body: body.trim()
-    };
-    setComments((prev) => [newComment, ...prev]);
-    setBody('');
-  }
+
+    try {
+        const dishIdNumber = parseInt(dish.id) || dish.id;
+
+        const { error } = await addComment(dishIdNumber, body.trim());
+
+        if (error) throw error;
+
+        const newComment = {
+            id: `${dish.id}-comment-${Date.now()}`,
+            author: 'Anonymous',
+            timestamp: 'Just now',
+            body: body.trim()
+        };
+
+        setComments((prev) => [newComment, ...prev]);
+        setBody('');
+    } catch (error) {
+        console.error('Error posting comment:', error);
+        alert('Failed to post comment. Please try again.');
+    }
+}
 
   const hall = hallId ? getHall(hallId) : null;
   const station = hall && stationId ? getStation(hallId, stationId) : null;
@@ -61,7 +76,7 @@ export default function DishPage() {
     return (
       <Box p={{ base: 4, md: 10 }} maxW="1100px" mx="auto">
         <Heading size="lg" mb={2}>
-          UBC Rate My Dish
+            UBC Rate My Dish
         </Heading>
         <Text color="gray.500">Dish not found.</Text>
         <Button mt={4} as={Link} to="/" variant="ghost">

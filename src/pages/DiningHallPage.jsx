@@ -23,9 +23,9 @@ export default function DiningHallPage() {
 
   const ratingColor = (avg, count) => {
     if (!count) return 'gray.600';
-    if (avg >= 8) return 'success.500';
-    if (avg >= 6) return 'warning.500';
-    return 'danger.500';
+    if (avg >= 4) return 'green.500';
+    if (avg >= 3) return 'yellow.500';
+    return 'red.500';
   };
 
   useEffect(() => {
@@ -89,7 +89,7 @@ export default function DiningHallPage() {
         </HStack>
         <Text fontWeight="semibold" color={ratingColor(hallRating.avg, hallRating.count)}>
           {hallRating.count > 0
-            ? `Overall rating: ${hallRating.avg.toFixed(1)}/10 (${hallRating.count} ratings)`
+            ? `Overall rating: ${hallRating.avg.toFixed(1)}/5 (${hallRating.count} ratings)`
             : 'No ratings yet'}
         </Text>
       </VStack>

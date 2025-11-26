@@ -5,6 +5,17 @@ import { useDishImage } from '../hooks/useDishImage';
 export default function DishListItem({ dish, hallId, stationId }) {
   const rating = typeof dish.rating === 'number' ? dish.rating : null;
   const imageUrl = useDishImage(dish);
+  const formatName = (name) =>
+    typeof name === 'string' ? name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : '';
+  const displayName = formatName(dish.name);
+  const ratingColor =
+    rating == null
+      ? 'gray.500'
+      : rating >= 8
+        ? 'success.500'
+        : rating >= 6
+          ? 'warning.500'
+          : 'danger.500';
 
   return (
     <Flex
@@ -32,6 +43,8 @@ export default function DishListItem({ dish, hallId, stationId }) {
       )}
       <Box flex="1">
         <Heading size="sm">{dish.name}</Heading>
+      <Box>
+        <Heading size="sm">{displayName}</Heading>
         {dish.description && (
           <Text fontSize="sm" color="gray.600" mt={1} noOfLines={2}>
             {dish.description}
@@ -39,7 +52,7 @@ export default function DishListItem({ dish, hallId, stationId }) {
         )}
         <HStack spacing={2} mt={2}>
           {dish.tags?.map((tag) => (
-            <Badge key={tag} colorScheme="purple">
+            <Badge key={tag} colorScheme="brand">
               {tag}
             </Badge>
           ))}

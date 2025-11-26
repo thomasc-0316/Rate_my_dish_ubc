@@ -22,17 +22,20 @@ import {
 } from '@chakra-ui/react';
 import {
   addComment,
+  addOrUpdateRating,
   getDish,
   getDishStats,
   listComments,
   listHalls,
   listStations
 } from '../api';
+import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 import CommentItem from '../components/CommentItem';
 import { useDishImage } from '../hooks/useDishImage';
 
 export default function DishPage() {
   const { hallId = '', stationId = '', dishId = '' } = useParams();
+  const { user } = useSupabaseAuth();
   const [dish, setDish] = useState(null);
   const [comments, setComments] = useState([]);
   const [body, setBody] = useState('');
@@ -42,6 +45,8 @@ export default function DishPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const imageUrl = useDishImage(dish);
+  const formatName = (name) =>
+    typeof name === 'string' ? name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : '';
 
   useEffect(() => {
     (async () => {
@@ -103,6 +108,38 @@ export default function DishPage() {
 
   const ratingText =
     stats.count > 0 ? `${stats.avg.toFixed(1)} (${stats.count} rating${stats.count === 1 ? '' : 's'})` : 'No ratings yet';
+  const displayName = formatName(dish?.name);
+  const ratingColor =
+    stats.count === 0
+      ? 'gray.600'
+      : stats.avg >= 8
+        ? 'success.500'
+        : stats.avg >= 6
+          ? 'warning.500'
+          : 'danger.500';
+
+  async function handleRating() {
+    if (!dish || !ratingValue) return;
+    if (!user) {
+      setError('Please sign in to rate dishes.');
+      return;
+    }
+    try {
+      setRatingSubmitting(true);
+      setError('');
+      setRatingMessage('');
+      await addOrUpdateRating(dish.id, ratingValue);
+      const updatedStats = await getDishStats(dish.id);
+      setStats(updatedStats);
+      setRatingValue(null);
+      setRatingMessage('Thanks for rating!');
+    } catch (err) {
+      console.error('Failed to submit rating', err);
+      setError('Could not submit rating right now.');
+    } finally {
+      setRatingSubmitting(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -156,7 +193,7 @@ export default function DishPage() {
           </BreadcrumbItem>
         )}
         <BreadcrumbItem isCurrentPage>
-          <BreadcrumbLink>{dish.name}</BreadcrumbLink>
+          <BreadcrumbLink>{displayName}</BreadcrumbLink>
         </BreadcrumbItem>
       </Breadcrumb>
 
@@ -173,15 +210,52 @@ export default function DishPage() {
             fallbackSrc="https://placehold.co/600x400?text=Dish+Image"
           />
           <Heading size="xl" mb={2}>
-            {dish.name}
+            {displayName}
           </Heading>
           <Text color="gray.600" mb={2}>
             {stationName || 'Station'} - {hallName || 'Hall'}
           </Text>
-          <Text fontSize="lg" fontWeight="bold" color="purple.600" mb={1}>
+          <Text fontSize="lg" fontWeight="bold" color={ratingColor} mb={1}>
             {ratingText}
           </Text>
           <Text color="gray.800">{dish.description || 'No description yet.'}</Text>
+          <Box mt={5}>
+            <Text fontWeight="semibold" mb={2}>
+              Rate this dish
+            </Text>
+            <HStack spacing={2} mb={2}>
+              {[1, 2, 3, 4, 5].map((score) => (
+                <Button
+                  key={score}
+                  size="sm"
+                  variant={ratingValue === score ? 'solid' : 'outline'}
+                  colorScheme="purple"
+                  onClick={() => setRatingValue(score)}
+                >
+                  {score}
+                </Button>
+              ))}
+            </HStack>
+            <Button
+              size="sm"
+              colorScheme="purple"
+              onClick={handleRating}
+              isDisabled={!ratingValue}
+              isLoading={ratingSubmitting}
+            >
+              Submit rating
+            </Button>
+            {ratingMessage ? (
+              <Text color="green.600" fontSize="sm" mt={2}>
+                {ratingMessage}
+              </Text>
+            ) : null}
+            {!user ? (
+              <Text color="gray.600" fontSize="sm" mt={2}>
+                Sign in to submit a rating.
+              </Text>
+            ) : null}
+          </Box>
         </Box>
 
         <Box>
@@ -219,7 +293,7 @@ export default function DishPage() {
                   rows={4}
                 />
               </FormControl>
-              <Button type="submit" mt={3} colorScheme="purple" isDisabled={!body.trim()}>
+              <Button type="submit" mt={3} colorScheme="brand" isDisabled={!body.trim()}>
                 Post Comment
               </Button>
             </form>

@@ -1,63 +1,119 @@
-import { GoogleLogin, googleLogout } from '@react-oauth/google';
 import { useState } from 'react';
-import { Box, Container, Heading, Text, VStack, Avatar, Button } from '@chakra-ui/react';
+import { Container, Heading, Text, VStack, Avatar, Button, Input, FormControl, FormLabel, Alert, AlertIcon, Spinner } from '@chakra-ui/react';
+import { signInWithPassword, signOut, signUpWithEmail } from '../api';
+import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 
 export default function LoginPage() {
-  const [user, setUser] = useState(null);
+  const { user, loading } = useSupabaseAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState('signin');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
 
-  const handleLoginSuccess = (credentialResponse) => {
-    // Decode JWT token to get user info
-    const token = credentialResponse.credential;
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
+  const isSignUp = mode === 'signup';
+  const displayName = user?.user_metadata?.full_name || user?.email || 'User';
+
+  const handleSubmit = async (event) => {
+    event?.preventDefault();
+    setSubmitting(true);
+    setError('');
+    setMessage('');
+
+    const action = isSignUp ? signUpWithEmail : signInWithPassword;
+    const { error: authError } = await action(email, password);
+
+    if (authError) {
+      setError(authError.message);
+    } else {
+      setMessage(isSignUp ? 'Check your email to confirm your account before signing in.' : 'Signed in!');
+      setEmail('');
+      setPassword('');
+    }
+
+    setSubmitting(false);
+  };
+
+  const handleLogout = async () => {
+    setSigningOut(true);
+    await signOut();
+    setSigningOut(false);
+  };
+
+  if (loading) {
+    return (
+      <Container maxW="md" py={20}>
+        <VStack spacing={4}>
+          <Spinner />
+          <Text color="gray.600">Checking your session...</Text>
+        </VStack>
+      </Container>
     );
-
-    const userInfo = JSON.parse(jsonPayload);
-    setUser({
-      name: userInfo.name,
-      email: userInfo.email,
-      picture: userInfo.picture,
-    });
-  };
-
-  const handleLoginError = () => {
-    console.error('Login Failed');
-  };
-
-  const handleLogout = () => {
-    googleLogout();
-    setUser(null);
-  };
+  }
 
   return (
     <Container maxW="md" py={20}>
       {!user ? (
         <VStack
+          as="form"
           spacing={6}
           p={8}
           bg="white"
           borderRadius="lg"
           boxShadow="md"
           borderWidth="1px"
+          onSubmit={handleSubmit}
         >
-          <Heading size="lg" color="purple.600">
+          <Heading size="lg" color="brand.600">
             Welcome to UBC Rate My Dish
           </Heading>
           <Text color="gray.600" textAlign="center">
-            Please sign in with your Google account to continue
+            {isSignUp
+              ? 'Create an account with your email and password.'
+              : 'Sign in with your Supabase email and password.'}
           </Text>
-          <Box mt={4}>
-            <GoogleLogin
-              onSuccess={handleLoginSuccess}
-              onError={handleLoginError}
-              useOneTap
+          {error ? (
+            <Alert status="error" borderRadius="md" fontSize="sm" w="full">
+              <AlertIcon />
+              {error}
+            </Alert>
+          ) : null}
+          {message ? (
+            <Alert status="success" borderRadius="md" fontSize="sm" w="full">
+              <AlertIcon />
+              {message}
+            </Alert>
+          ) : null}
+          <FormControl isRequired>
+            <FormLabel>Email</FormLabel>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
             />
-          </Box>
+          </FormControl>
+          <FormControl isRequired>
+            <FormLabel>Password</FormLabel>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Your password"
+            />
+          </FormControl>
+          <Button type="submit" colorScheme="purple" w="full" isLoading={submitting}>
+            {isSignUp ? 'Create account' : 'Sign in'}
+          </Button>
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => setMode(isSignUp ? 'signin' : 'signup')}
+          >
+            {isSignUp ? 'Have an account? Sign in' : 'Need an account? Sign up'}
+          </Button>
         </VStack>
       ) : (
         <VStack
@@ -68,10 +124,14 @@ export default function LoginPage() {
           boxShadow="md"
           borderWidth="1px"
         >
-          <Avatar src={user.picture} name={user.name} size="xl" />
-          <Heading size="md">Hello, {user.name}!</Heading>
+          <Avatar
+            name={displayName}
+            size="xl"
+            src={user?.user_metadata?.avatar_url ?? undefined}
+          />
+          <Heading size="md">Hello, {displayName}!</Heading>
           <Text color="gray.600">{user.email}</Text>
-          <Button colorScheme="purple" onClick={handleLogout}>
+          <Button colorScheme="brand" onClick={handleLogout}>
             Log Out
           </Button>
         </VStack>

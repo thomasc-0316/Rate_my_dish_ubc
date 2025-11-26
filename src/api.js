@@ -8,6 +8,10 @@ export async function signInWithPassword(email, password) {
   return supabase.auth.signInWithPassword({ email, password });
 }
 
+export async function signUpWithEmail(email, password) {
+  return supabase.auth.signUp({ email, password });
+}
+
 export async function signOut() {
   return supabase.auth.signOut();
 }
@@ -123,4 +127,33 @@ export async function listLeaderboard(limit = 10) {
   });
 
   return entries.sort((a, b) => b.avg - a.avg).slice(0, limit);
+}
+
+export async function getHallRating(hallSlug) {
+  // 1) Stations for this hall
+  const { data: stationRows, error: stationsError } = await supabase
+    .from('stations')
+    .select('id, dining_halls!inner(slug)')
+    .eq('dining_halls.slug', hallSlug);
+  if (stationsError) throw stationsError;
+  const stationIds = (stationRows ?? []).map((row) => row.id);
+  if (!stationIds.length) return { avg: 0, count: 0 };
+
+  // 2) Dishes for these stations
+  const { data: dishRows, error: dishesError } = await supabase
+    .from('dishes')
+    .select('id, station_id')
+    .in('station_id', stationIds);
+  if (dishesError) throw dishesError;
+  const dishIds = (dishRows ?? []).map((row) => row.id);
+  if (!dishIds.length) return { avg: 0, count: 0 };
+
+  // 3) Ratings for these dishes
+  const { data: ratingRows, error: ratingsError } = await supabase.from('ratings').select('score').in('dish_id', dishIds);
+  if (ratingsError) throw ratingsError;
+
+  const scores = ratingRows?.map((r) => r.score).filter((s) => typeof s === 'number') ?? [];
+  const count = scores.length;
+  const total = scores.reduce((sum, s) => sum + s, 0);
+  return { avg: count ? total / count : 0, count };
 }

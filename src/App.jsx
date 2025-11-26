@@ -7,6 +7,7 @@ import DishPage from './pages/DishPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import Navbar from './components/Navbar';
 import Assistant from './components/Assistant'
+import Footer from './components/Footer';
 import LoginPage from './pages/LoginPage';
 
 const theme = extendTheme({
@@ -127,7 +128,7 @@ export default function App() {
     <ChakraProvider theme={theme}>
       <BrowserRouter>
         <Navbar />
-        <Box as="main" bg="transparent">
+        <Box as="main" bg="transparent" pb={12}>
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/halls" element={<Halls />} />
@@ -138,7 +139,7 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
           </Routes>
         </Box>
-        <Assistant />
+        <Footer />
       </BrowserRouter>
     </ChakraProvider>
   );

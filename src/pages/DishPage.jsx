@@ -87,13 +87,14 @@ export default function DishPage() {
   async function handleComment(event) {
     event.preventDefault();
     if (!dish || !body.trim()) return;
+
     try {
       setError('');
       await addComment(dish.id, body.trim());
       setComments((prev) => [
         {
           id: `local-${Date.now()}`,
-          user_id: null,
+          user_id: user.id,
           dish_id: dish.id,
           body: body.trim(),
           created_at: new Date().toISOString()

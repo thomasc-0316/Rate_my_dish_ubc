@@ -6,6 +6,7 @@ import DiningHallPage from './pages/DiningHallPage';
 import DishPage from './pages/DishPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import Navbar from './components/Navbar';
+import Assistant from './components/Assistant'
 
 const theme = extendTheme({
   styles: {
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="/hall/:hallId" element={<DiningHallPage />} />
             <Route path="/hall/:hallId/station/:stationId/dish/:dishId" element={<DishPage />} />
             <Route path="/leaderboard" element={<LeaderboardPage />} />
+            <Route path="/assistant" element={<Assistant />}/>
           </Routes>
         </Box>
       </BrowserRouter>

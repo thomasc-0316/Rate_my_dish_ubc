@@ -2,6 +2,8 @@ import { Badge, Box, Flex, Heading, HStack, Text } from '@chakra-ui/react';
 import { Link } from 'react-router-dom';
 
 export default function DishListItem({ dish, hallId, stationId }) {
+  const rating = typeof dish.rating === 'number' ? dish.rating : null;
+
   return (
     <Flex
       as={Link}
@@ -16,6 +18,11 @@ export default function DishListItem({ dish, hallId, stationId }) {
     >
       <Box>
         <Heading size="sm">{dish.name}</Heading>
+        {dish.description && (
+          <Text fontSize="sm" color="gray.600" mt={1} noOfLines={2}>
+            {dish.description}
+          </Text>
+        )}
         <HStack spacing={2} mt={2}>
           {dish.tags?.map((tag) => (
             <Badge key={tag} colorScheme="purple">
@@ -24,7 +31,9 @@ export default function DishListItem({ dish, hallId, stationId }) {
           ))}
         </HStack>
       </Box>
-      <Text fontWeight="semibold">{dish.rating.toFixed(1)}/10</Text>
+      <Text fontWeight="semibold" color={rating ? 'gray.800' : 'gray.500'}>
+        {rating ? `${rating.toFixed(1)}/10` : 'No ratings yet'}
+      </Text>
     </Flex>
   );
 }

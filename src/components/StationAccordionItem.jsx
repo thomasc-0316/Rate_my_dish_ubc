@@ -12,7 +12,7 @@ import {
 import DishListItem from './DishListItem';
 
 export default function StationAccordionItem({ station, hallId }) {
-  const dishesForStation = [...(station?.dishes ?? [])].sort((a, b) => b.rating - a.rating);
+  const dishesForStation = station?.dishes ?? [];
 
   return (
     <AccordionItem border="none" mb={3}>

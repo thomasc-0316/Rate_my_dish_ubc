@@ -1,38 +1,46 @@
-import { Box, Button, Flex, Heading, HStack, Menu, MenuButton, MenuList, MenuItem, VStack, Text, Avatar, Divider, IconButton } from '@chakra-ui/react';
+import { Box, Button, Flex, Heading, HStack, Menu, MenuButton, MenuList, MenuItem, VStack, Text, Avatar, Divider, IconButton, Input, FormControl, FormLabel, Alert, AlertIcon, Spinner } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
-import { GoogleLogin, googleLogout } from '@react-oauth/google';
 import { useState } from 'react';
+import { signInWithPassword, signOut, signUpWithEmail } from '../api';
+import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 
 export default function Navbar() {
-  const [user, setUser] = useState(null);
+  const { user, loading: authLoading } = useSupabaseAuth();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [mode, setMode] = useState('signin');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [signingOut, setSigningOut] = useState(false);
 
-  const handleLoginSuccess = (credentialResponse) => {
-    // Decode JWT token to get user info
-    const token = credentialResponse.credential;
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
+  const isSignUp = mode === 'signup';
+  const displayName = user?.user_metadata?.full_name || user?.email || 'User';
 
-    const userInfo = JSON.parse(jsonPayload);
-    setUser({
-      name: userInfo.name,
-      email: userInfo.email,
-      picture: userInfo.picture,
-    });
+  const handleSubmit = async (event) => {
+    event?.preventDefault();
+    setSubmitting(true);
+    setError('');
+    setMessage('');
+
+    const action = isSignUp ? signUpWithEmail : signInWithPassword;
+    const { error: authError } = await action(email, password);
+
+    if (authError) {
+      setError(authError.message);
+    } else {
+      setMessage(isSignUp ? 'Check your email to confirm your account before signing in.' : 'Signed in!');
+      setEmail('');
+      setPassword('');
+    }
+
+    setSubmitting(false);
   };
 
-  const handleLoginError = () => {
-    console.error('Login Failed');
-  };
-
-  const handleLogout = () => {
-    googleLogout();
-    setUser(null);
+  const handleLogout = async () => {
+    setSigningOut(true);
+    await signOut();
+    setSigningOut(false);
   };
 
   return (
@@ -75,7 +83,15 @@ export default function Navbar() {
               as={user ? IconButton : Button}
               colorScheme="brand"
               variant={user ? "ghost" : "outline"}
-              icon={user ? <Avatar size="sm" src={user.picture} name={user.name} /> : undefined}
+              icon={
+                user ? (
+                  <Avatar
+                    size="sm"
+                    name={displayName}
+                    src={user?.user_metadata?.avatar_url ?? undefined}
+                  />
+                ) : undefined
+              }
               _hover={{ transform: 'scale(1.05)', transition: 'all 0.2s' }}
             >
               {!user && "Login"}
@@ -87,21 +103,71 @@ export default function Navbar() {
               py={3}
               minW="280px"
             >
-              {!user ? (
-                <VStack spacing={4} px={4} py={2}>
+              {authLoading ? (
+                <VStack spacing={3} px={4} py={2}>
+                  <Spinner size="sm" />
+                  <Text fontSize="sm" color="gray.600">Checking session...</Text>
+                </VStack>
+              ) : !user ? (
+                <VStack as="form" spacing={4} px={4} py={2} onSubmit={handleSubmit}>
                   <Text color="gray.600" textAlign="center" fontSize="sm">
-                    Sign in with your Google account
+                    {isSignUp ? 'Create an account to start rating dishes.' : 'Sign in with your email and password.'}
                   </Text>
-                  <GoogleLogin
-                    onSuccess={handleLoginSuccess}
-                    onError={handleLoginError}
-                  />
+                  {error ? (
+                    <Alert status="error" borderRadius="md" fontSize="sm">
+                      <AlertIcon />
+                      {error}
+                    </Alert>
+                  ) : null}
+                  {message ? (
+                    <Alert status="success" borderRadius="md" fontSize="sm">
+                      <AlertIcon />
+                      {message}
+                    </Alert>
+                  ) : null}
+                  <FormControl isRequired>
+                    <FormLabel fontSize="sm">Email</FormLabel>
+                    <Input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="you@example.com"
+                    />
+                  </FormControl>
+                  <FormControl isRequired>
+                    <FormLabel fontSize="sm">Password</FormLabel>
+                    <Input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Your password"
+                    />
+                  </FormControl>
+                  <Button
+                    type="submit"
+                    colorScheme="purple"
+                    w="full"
+                    isLoading={submitting}
+                  >
+                    {isSignUp ? 'Create account' : 'Sign in'}
+                  </Button>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    onClick={() => setMode(isSignUp ? 'signin' : 'signup')}
+                  >
+                    {isSignUp ? 'Have an account? Sign in' : 'Need an account? Sign up'}
+                  </Button>
                 </VStack>
               ) : (
                 <VStack spacing={3} align="stretch">
                   <VStack spacing={2} px={4} pb={2}>
-                    <Avatar src={user.picture} name={user.name} size="lg" />
-                    <Text fontWeight="semibold" fontSize="md">{user.name}</Text>
+                    <Avatar
+                      name={displayName}
+                      size="lg"
+                      src={user?.user_metadata?.avatar_url ?? undefined}
+                    />
+                    <Text fontWeight="semibold" fontSize="md">{displayName}</Text>
                     <Text color="gray.600" fontSize="sm">{user.email}</Text>
                   </VStack>
                   <Divider />
@@ -110,8 +176,9 @@ export default function Navbar() {
                     color="red.600"
                     fontWeight="medium"
                     _hover={{ bg: 'red.50' }}
+                    isDisabled={signingOut}
                   >
-                    Logout
+                    {signingOut ? 'Logging out...' : 'Logout'}
                   </MenuItem>
                 </VStack>
               )}

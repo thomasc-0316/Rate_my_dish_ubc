@@ -31,7 +31,6 @@ import {
 } from '../api';
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 import CommentItem from '../components/CommentItem';
-import {addComment} from "../api";
 
 export default function DishPage() {
   const { hallId = '', stationId = '', dishId = '' } = useParams();
@@ -82,7 +81,6 @@ export default function DishPage() {
     })();
   }, [hallId, stationId, dishId]);
 
-  function handleComment(event) {
   async function handleComment(event) {
     event.preventDefault();
     if (!dish || !body.trim()) return;
@@ -94,7 +92,7 @@ export default function DishPage() {
     };
     setComments((prev) => [newComment, ...prev]);
     setBody('');
-  }
+
     try {
       setError('');
       await addComment(dish.id, body.trim());

@@ -19,6 +19,32 @@ const hasSupabaseCreds = Boolean(
   import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
+function renderInlineMarkdown(text) {
+  // Simple bold/italic parsing for **bold** and *italic* tokens.
+  const tokens = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+  return tokens.map((token, idx) => {
+    if (token.startsWith("**") && token.endsWith("**")) {
+      return (
+        <Text as="span" key={idx} fontWeight="bold">
+          {token.slice(2, -2)}
+        </Text>
+      );
+    }
+    if (token.startsWith("*") && token.endsWith("*")) {
+      return (
+        <Text as="span" key={idx} fontStyle="italic">
+          {token.slice(1, -1)}
+        </Text>
+      );
+    }
+    return (
+      <Text as="span" key={idx}>
+        {token}
+      </Text>
+    );
+  });
+}
+
 export default function Assistant({ maxHeight = "360px" }) {
   const toast = useToast();
   const [input, setInput] = useState("");
@@ -251,7 +277,13 @@ export default function Assistant({ maxHeight = "360px" }) {
                     <Text fontSize="xs" mb={1} opacity={0.8}>
                       {message.role === "user" ? "You" : "DishHelper 3000"}
                     </Text>
-                    <Text whiteSpace="pre-wrap">{message.content}</Text>
+                    <VStack align="stretch" spacing={1}>
+                      {message.content.split("\n").map((line, lineIdx) => (
+                        <Text key={lineIdx} whiteSpace="pre-wrap">
+                          {renderInlineMarkdown(line)}
+                        </Text>
+                      ))}
+                    </VStack>
                   </Box>
                 </Flex>
               ))}

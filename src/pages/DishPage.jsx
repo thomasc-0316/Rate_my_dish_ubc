@@ -40,6 +40,8 @@ export default function DishPage() {
   const [stationName, setStationName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const formatName = (name) =>
+    typeof name === 'string' ? name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : '';
 
   useEffect(() => {
     (async () => {
@@ -101,6 +103,15 @@ export default function DishPage() {
 
   const ratingText =
     stats.count > 0 ? `${stats.avg.toFixed(1)} (${stats.count} rating${stats.count === 1 ? '' : 's'})` : 'No ratings yet';
+  const displayName = formatName(dish?.name);
+  const ratingColor =
+    stats.count === 0
+      ? 'gray.600'
+      : stats.avg >= 8
+        ? 'success.500'
+        : stats.avg >= 6
+          ? 'warning.500'
+          : 'danger.500';
 
   if (loading) {
     return (
@@ -154,7 +165,7 @@ export default function DishPage() {
           </BreadcrumbItem>
         )}
         <BreadcrumbItem isCurrentPage>
-          <BreadcrumbLink>{dish.name}</BreadcrumbLink>
+          <BreadcrumbLink>{displayName}</BreadcrumbLink>
         </BreadcrumbItem>
       </Breadcrumb>
 
@@ -171,12 +182,12 @@ export default function DishPage() {
             fallbackSrc="https://placehold.co/600x400?text=Dish+Image"
           />
           <Heading size="xl" mb={2}>
-            {dish.name}
+            {displayName}
           </Heading>
           <Text color="gray.600" mb={2}>
             {stationName || 'Station'} - {hallName || 'Hall'}
           </Text>
-          <Text fontSize="lg" fontWeight="bold" color="purple.600" mb={1}>
+          <Text fontSize="lg" fontWeight="bold" color={ratingColor} mb={1}>
             {ratingText}
           </Text>
           <Text color="gray.800">{dish.description || 'No description yet.'}</Text>
@@ -217,7 +228,7 @@ export default function DishPage() {
                   rows={4}
                 />
               </FormControl>
-              <Button type="submit" mt={3} colorScheme="purple" isDisabled={!body.trim()}>
+              <Button type="submit" mt={3} colorScheme="brand" isDisabled={!body.trim()}>
                 Post Comment
               </Button>
             </form>

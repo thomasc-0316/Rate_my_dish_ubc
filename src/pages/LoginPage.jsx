@@ -45,7 +45,7 @@ export default function LoginPage() {
           boxShadow="md"
           borderWidth="1px"
         >
-          <Heading size="lg" color="purple.600">
+          <Heading size="lg" color="brand.600">
             Welcome to UBC Rate My Dish
           </Heading>
           <Text color="gray.600" textAlign="center">
@@ -71,7 +71,7 @@ export default function LoginPage() {
           <Avatar src={user.picture} name={user.name} size="xl" />
           <Heading size="md">Hello, {user.name}!</Heading>
           <Text color="gray.600">{user.email}</Text>
-          <Button colorScheme="purple" onClick={handleLogout}>
+          <Button colorScheme="brand" onClick={handleLogout}>
             Log Out
           </Button>
         </VStack>

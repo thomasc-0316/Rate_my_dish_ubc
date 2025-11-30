@@ -19,7 +19,8 @@ create table if not exists dishes (
   id bigserial primary key,
   station_id bigint not null references stations(id) on delete cascade,
   name text not null,
-  description text
+  description text,
+  image_url text
 );
 
 -- Ratings one per (user,dish).
@@ -41,7 +42,66 @@ create table if not exists comments (
   created_at timestamptz default now()
 );
 
--- RLS notes:
--- enable row level security on ratings, comments.
--- policy: select true for authenticated.
--- policy: insert/update allowed only when auth.uid() = user_id.
+-- Daily menu entries: which dishes are offered, where, and when.
+create table if not exists menu_entries (
+  id bigserial primary key,
+  date date not null,
+  meal text not null check (meal in ('breakfast', 'lunch', 'dinner')),
+  hall_id bigint not null references dining_halls(id) on delete cascade,
+  station_id bigint not null references stations(id) on delete cascade,
+  dish_id bigint not null references dishes(id) on delete cascade,
+  unique (date, meal, station_id, dish_id)
+);
+
+
+-- RLS notes and example policies:
+--
+-- Public / catalog tables (usually RLS disabled or read-only):
+--   dining_halls, stations, dishes, menu_entries
+--
+-- User-generated tables: enable RLS and lock rows by user_id.
+--
+--   alter table public.ratings  enable row level security;
+--   alter table public.comments enable row level security;
+--
+-- Ratings policies:
+--
+--   -- anyone can read ratings
+--   create policy read_ratings on public.ratings
+--   as permissive for select to public
+--   using ( true );
+--
+--   -- authenticated users can insert ratings for themselves
+--   create policy insert_ratings_auth on public.ratings
+--   as permissive for insert to authenticated
+--   with check ( auth.uid() = user_id );
+--
+--   -- users can update their own ratings
+--   create policy update_own_ratings on public.ratings
+--   as permissive for update to authenticated
+--   using ( auth.uid() = user_id )
+--   with check ( auth.uid() = user_id );
+--
+--   -- optional: users can delete their own ratings
+--   create policy delete_own_ratings on public.ratings
+--   as permissive for delete to authenticated
+--   using ( auth.uid() = user_id );
+--
+-- Comments policies (same idea):
+--
+--   create policy read_comments on public.comments
+--   as permissive for select to public
+--   using ( true );
+--
+--   create policy insert_comments_auth on public.comments
+--   as permissive for insert to authenticated
+--   with check ( auth.uid() = user_id );
+--
+--   create policy update_own_comments on public.comments
+--   as permissive for update to authenticated
+--   using ( auth.uid() = user_id )
+--   with check ( auth.uid() = user_id );
+--
+--   create policy delete_own_comments on public.comments
+--   as permissive for delete to authenticated
+--   using ( auth.uid() = user_id );

@@ -1,4 +1,4 @@
-// Deno runtime types are expected; removed triple-slash reference to avoid compile-time errors
+// @ts-nocheck - This is a Deno Edge Function, types are available at runtime
 // Supabase Edge Function: scraper
 //
 // Purpose: Fetch Nutrislice menus for UBC halls, normalize stations/dishes,
@@ -396,7 +396,7 @@ async function upsertScrapedData(results: ScrapeResult[], isoDate: string) {
   if (stationIds.length){
     const { data: allDishes, error: dishesSelectError } = await supabase.from('dishes').select('id, station_id, name').in('station_id', stationIds);
     if (dishesSelectError) throw dishesSelectError;
-    dishIdByKey = new Map<string, number>((allDishes ?? []).map((row)=>[
+    dishIdByKey = new Map<string, number>((allDishes ?? []).map((row: { station_id: number; name: string; id: number })=>[
       `${row.station_id}::${row.name.toLowerCase()}`,
       row.id as number
     ]));

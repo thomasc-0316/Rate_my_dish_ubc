@@ -4,17 +4,33 @@ import { signInWithPassword, signOut, signUpWithEmail } from '../api';
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 
 export default function LoginPage() {
-  const { user, loading } = useSupabaseAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [mode, setMode] = useState('signin');
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
-  const [signingOut, setSigningOut] = useState(false);
+    const { user, loading } = useSupabaseAuth();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [username, setUsername] = useState('');
+    const [mode, setMode] = useState('signin');
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState('');
+    const [message, setMessage] = useState('');
+    const [signingOut, setSigningOut] = useState(false);
+    const [profile, setProfile] = useState(null);
+    const [loadingProfile, setLoadingProfile] = useState(false);
+
 
   const isSignUp = mode === 'signup';
-  const displayName = user?.user_metadata?.full_name || user?.email || 'User';
+  const displayName = profile?.username || user?.user_metadata?.full_name || 'User';
+
+  useEffect(() => {
+    if (user) {
+      setLoadingProfile(true);
+      getCurrentUserProfile()
+        .then(setProfile)
+        .catch(console.error)
+        .finally(() => setLoadingProfile(false));
+    } else {
+      setProfile(null);
+    }
+  }, [user]);
 
   const handleSubmit = async (event) => {
     event?.preventDefault();
@@ -22,15 +38,45 @@ export default function LoginPage() {
     setError('');
     setMessage('');
 
-    const action = isSignUp ? signUpWithEmail : signInWithPassword;
-    const { error: authError } = await action(email, password);
+    if (isSignUp) {
+      if (!username.trim()) {
+        setError('Username is required');
+        setSubmitting(false);
+        return;
+      }
 
-    if (authError) {
-      setError(authError.message);
-    } else {
-      setMessage(isSignUp ? 'Check your email to confirm your account before signing in.' : 'Signed in!');
+      const { data, error: authError } = await signUpWithEmail(email, password);
+
+      if (authError) {
+        setError(authError.message);
+        setSubmitting(false);
+        return;
+      }
+
+      if (data?.user) {
+        const { error: profileError } = await createProfile(username);
+        if (profileError) {
+          setError(`Account created but username failed: ${profileError.message}`);
+        } else {
+          setMessage('Account created! Check your email to confirm before signing in.');
+        }
+      } else {
+        setMessage('Check your email to confirm your account before signing in.');
+      }
+
       setEmail('');
       setPassword('');
+      setUsername('');
+    } else {
+      const { error: authError } = await signInWithPassword(email, password);
+
+      if (authError) {
+        setError(authError.message);
+      } else {
+        setMessage('Signed in!');
+        setEmail('');
+        setPassword('');
+      }
     }
 
     setSubmitting(false);
@@ -42,7 +88,7 @@ export default function LoginPage() {
     setSigningOut(false);
   };
 
-  if (loading) {
+  if (loading || loadingProfile) {
     return (
       <Container maxW="md" py={20}>
         <VStack spacing={4}>
@@ -104,6 +150,17 @@ export default function LoginPage() {
               placeholder="Your password"
             />
           </FormControl>
+          {isSignUp && (
+            <FormControl isRequired>
+              <FormLabel>Username</FormLabel>
+              <Input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Choose a username"
+              />
+            </FormControl>
+          )}
           <Button type="submit" colorScheme="purple" w="full" isLoading={submitting}>
             {isSignUp ? 'Create account' : 'Sign in'}
           </Button>

@@ -91,16 +91,7 @@ export default function DishPage() {
     try {
       setError('');
       await addComment(dish.id, body.trim());
-      setComments((prev) => [
-        {
-          id: `local-${Date.now()}`,
-          user_id: user.id,
-          dish_id: dish.id,
-          body: body.trim(),
-          created_at: new Date().toISOString()
-        },
-        ...prev
-      ]);
+      const updatedComments = await listComments(dish.id);
       setBody('');
     } catch (err) {
       console.error('Failed to add comment', err);
@@ -272,7 +263,7 @@ export default function DishPage() {
                 {comments.map((comment) => (
                   <CommentItem
                     key={comment.id}
-                    username={comment.user_id || 'Anonymous'}
+                    username={comment.username || 'Anonymous'}
                     timestamp={comment.created_at || 'Just now'}
                     text={comment.body}
                   />

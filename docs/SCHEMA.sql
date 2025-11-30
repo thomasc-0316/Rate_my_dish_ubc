@@ -23,6 +23,13 @@ create table if not exists dishes (
   image_url text
 );
 
+-- User profiles with usernames
+create table if not exists profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  username text unique not null,
+  created_at timestamptz default now()
+);
+
 -- Ratings one per (user,dish).
 create table if not exists ratings (
   id bigserial primary key,
@@ -63,6 +70,24 @@ create table if not exists menu_entries (
 --
 --   alter table public.ratings  enable row level security;
 --   alter table public.comments enable row level security;
+--
+-- Profiles policies:
+--
+--   -- everyone can read profiles (for displaying usernames)
+--   create policy read_profiles on public.profiles
+--   as permissive for select to public
+--   using ( true );
+--
+--   -- users can insert their own profile
+--   create policy insert_own_profile on public.profiles
+--   as permissive for insert to authenticated
+--   with check ( auth.uid() = id );
+--
+--   -- users can update their own profile
+--   create policy update_own_profile on public.profiles
+--   as permissive for update to authenticated
+--   using ( auth.uid() = id )
+--   with check ( auth.uid() = id );
 --
 -- Ratings policies:
 --

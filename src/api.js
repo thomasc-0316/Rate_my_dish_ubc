@@ -12,6 +12,34 @@ export async function signUpWithEmail(email, password) {
   return supabase.auth.signUp({ email, password });
 }
 
+export async function createProfile(username) {
+    const { data } = await supabase.auth.getUser();
+    const userId = data?.user?.id;
+    if (!userId) throw new Error('Not signed in');
+
+    return supabase.from('profiles').insert({
+        id: userId,
+        username
+    });
+}
+
+export async function getProfile(userId) {
+    const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+    if (error) throw error;
+    return data ?? null;
+}
+
+export async function getCurrentUserProfile() {
+    const { data } = await supabase.auth.getUser();
+    const userId = data?.user?.id;
+    if (!userId) return null;
+    return getProfile(userId);
+}
+
 export async function signOut() {
   return supabase.auth.signOut();
 }
@@ -91,12 +119,15 @@ export async function addOrUpdateRating(dishId, score) {
 export async function listComments(dishId, limit = 20) {
   const { data, error } = await supabase
     .from('comments')
-    .select('*')
+    .select('*, profiles(username)')
     .eq('dish_id', dishId)
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).map((comment) => ({
+    ...comment,
+    username: comment.profiles?.username || 'Anonymous'
+  }));
 }
 
 export async function addComment(dishId, body) {

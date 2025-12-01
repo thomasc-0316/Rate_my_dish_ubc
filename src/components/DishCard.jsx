@@ -19,7 +19,9 @@ export default function DishCard({ dish, stats }) {
           fallbackSrc="https://placehold.co/400x200?text=Dish+Image"
         />
       )}
-      <Heading size="md">{dish.name}</Heading>
+      <Heading size="md" textAlign="center">
+        {dish.name}
+      </Heading>
       <Text fontSize="sm" color="gray.600" textAlign="center">
         {dish.description || 'No description yet.'}
       </Text>

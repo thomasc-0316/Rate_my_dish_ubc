@@ -1,17 +1,24 @@
 import { useState } from 'react';
 import { Container, Heading, Text, VStack, Avatar, Button, Input, FormControl, FormLabel, Alert, AlertIcon, Spinner } from '@chakra-ui/react';
-import { signInWithPassword, signOut, signUpWithEmail } from '../api';
+import { signInWithPassword, signOut, signUpWithEmail, ensureProfile, getProfile, updateUsername } from '../api';
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 
 export default function LoginPage() {
   const { user, loading } = useSupabaseAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('');
   const [mode, setMode] = useState('signin');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [signingOut, setSigningOut] = useState(false);
+  const [profileUsername, setProfileUsername] = useState('');
+  const [usernameInput, setUsernameInput] = useState('');
+  const [usernameLoading, setUsernameLoading] = useState(false);
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameMsg, setUsernameMsg] = useState('');
+  const [usernameErr, setUsernameErr] = useState('');
 
   const isSignUp = mode === 'signup';
   const displayName = user?.user_metadata?.full_name || user?.email || 'User';
@@ -22,15 +29,33 @@ export default function LoginPage() {
     setError('');
     setMessage('');
 
-    const action = isSignUp ? signUpWithEmail : signInWithPassword;
-    const { error: authError } = await action(email, password);
+    let authError;
+    if (isSignUp) {
+      const { error } = await signUpWithEmail(email, password, username || undefined);
+      authError = error;
+    } else {
+      const { error } = await signInWithPassword(email, password);
+      authError = error;
+    }
 
     if (authError) {
       setError(authError.message);
     } else {
-      setMessage(isSignUp ? 'Check your email to confirm your account before signing in.' : 'Signed in!');
+      if (isSignUp) {
+        setMessage('Check your email to confirm your account before signing in.');
+      } else {
+        // Ensure a profile exists on successful sign-in
+        try {
+          await ensureProfile();
+        } catch (e) {
+          // Non-fatal: profile creation can be retried later
+          console.warn('ensureProfile failed', e);
+        }
+        setMessage('Signed in!');
+      }
       setEmail('');
       setPassword('');
+      setUsername('');
     }
 
     setSubmitting(false);
@@ -40,6 +65,48 @@ export default function LoginPage() {
     setSigningOut(true);
     await signOut();
     setSigningOut(false);
+  };
+
+  // Load current user's profile when signed in
+  useEffect(() => {
+    (async () => {
+      if (!user?.id) {
+        setProfileUsername('');
+        setUsernameInput('');
+        setUsernameMsg('');
+        setUsernameErr('');
+        return;
+      }
+      try {
+        setUsernameLoading(true);
+        const profile = await getProfile(user.id);
+        const uname = profile?.username || '';
+        setProfileUsername(uname);
+        setUsernameInput(uname);
+      } catch (e) {
+        console.warn('Failed to load profile', e);
+      } finally {
+        setUsernameLoading(false);
+      }
+    })();
+  }, [user?.id]);
+
+  const handleSaveUsername = async () => {
+    if (!user) return;
+    setUsernameSaving(true);
+    setUsernameErr('');
+    setUsernameMsg('');
+    try {
+      const { username: saved } = await updateUsername(usernameInput);
+      setProfileUsername(saved);
+      setUsernameInput(saved);
+      setUsernameMsg('Username updated successfully.');
+    } catch (e) {
+      const msg = e?.message || 'Failed to update username.';
+      setUsernameErr(msg);
+    } finally {
+      setUsernameSaving(false);
+    }
   };
 
   if (loading) {
@@ -95,6 +162,17 @@ export default function LoginPage() {
               placeholder="you@example.com"
             />
           </FormControl>
+          {isSignUp ? (
+            <FormControl isRequired>
+              <FormLabel>Username</FormLabel>
+              <Input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="your_username"
+              />
+            </FormControl>
+          ) : null}
           <FormControl isRequired>
             <FormLabel>Password</FormLabel>
             <Input
@@ -131,6 +209,42 @@ export default function LoginPage() {
           />
           <Heading size="md">Hello, {displayName}!</Heading>
           <Text color="gray.600">{user.email}</Text>
+          <VStack spacing={3} w="full" align="stretch">
+            <Heading size="sm">Your username</Heading>
+            {usernameErr ? (
+              <Alert status="error" borderRadius="md" fontSize="sm">
+                <AlertIcon />
+                {usernameErr}
+              </Alert>
+            ) : null}
+            {usernameMsg ? (
+              <Alert status="success" borderRadius="md" fontSize="sm">
+                <AlertIcon />
+                {usernameMsg}
+              </Alert>
+            ) : null}
+            <FormControl isRequired isDisabled={usernameLoading}>
+              <FormLabel>Username</FormLabel>
+              <Input
+                type="text"
+                value={usernameInput}
+                onChange={(e) => setUsernameInput(e.target.value)}
+                placeholder="your_username"
+              />
+            </FormControl>
+            <Button
+              colorScheme="brand"
+              onClick={handleSaveUsername}
+              isLoading={usernameSaving}
+              isDisabled={usernameLoading || !usernameInput?.trim()}
+              w="full"
+            >
+              Save username
+            </Button>
+            {profileUsername ? (
+              <Text fontSize="sm" color="gray.600">Current: @{profileUsername}</Text>
+            ) : null}
+          </VStack>
           <Button colorScheme="brand" onClick={handleLogout}>
             Log Out
           </Button>

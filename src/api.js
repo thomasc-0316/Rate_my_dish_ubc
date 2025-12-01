@@ -8,56 +8,8 @@ export async function signInWithPassword(email, password) {
   return supabase.auth.signInWithPassword({ email, password });
 }
 
-export async function signUpWithEmail(email, password, username) {
-  return supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      data: { username }
-    }
-  });
-}
-
-// Ensures a profile row exists for the current user with a username.
-// If a preferredUsername is provided, it will be used; otherwise falls back to
-// user metadata `username` or the email local-part. Handles unique conflicts by
-// appending a numeric suffix.
-export async function ensureProfile(preferredUsername) {
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData?.user;
-  if (!user) return { ensured: false };
-
-  const userId = user.id;
-  // Check if profile already exists
-  const { data: existing, error: existingErr } = await supabase
-    .from('profiles')
-    .select('id, username')
-    .eq('id', userId)
-    .maybeSingle();
-  if (existingErr) throw existingErr;
-  if (existing) return { ensured: true, username: existing.username };
-
-  const base = (preferredUsername || user.user_metadata?.username || user.email?.split('@')[0] || 'user')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '') || 'user';
-
-  let attempt = base;
-  let suffix = 0;
-  while (true) {
-    const { error: insertErr } = await supabase.from('profiles').insert({ id: userId, username: attempt });
-    if (!insertErr) return { ensured: true, username: attempt };
-    // 23505 = unique_violation
-    if ((insertErr.code || insertErr.message)?.toString().includes('23505')) {
-      suffix += 1;
-      attempt = `${base}${suffix}`;
-      continue;
-    }
-    // Other errors: bubble up
-    throw insertErr;
-  }
+export async function signUpWithEmail(email, password) {
+  return supabase.auth.signUp({ email, password });
 }
 
 export async function signOut() {
@@ -112,71 +64,34 @@ export async function getProfile(userId) {
   return data ?? null;
 }
 
-// Normalize a username to our allowed format: lowercase, a-z 0-9 _ only,
-// collapse repeats and trim edges. Returns a non-empty string or 'user'.
-function normalizeUsername(input) {
-  return (
-    (input || '')
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9_]/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_+|_+$/g, '') || 'user'
-  );
-}
-
-// Allow a signed-in user to change their username.
-// Returns { username } on success. Throws on other errors.
+// Create or update the current user's username.
+// Performs an upsert on profiles with conflict target = id.
+// Returns the updated profile row.
 export async function updateUsername(newUsername) {
-  const { data: userData } = await supabase.auth.getUser();
-  const user = userData?.user;
-  if (!user) throw new Error('Not signed in');
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  const userId = userData?.user?.id;
+  if (!userId) throw new Error('Not signed in');
 
-  const base = normalizeUsername(newUsername);
-  if (base.length < 3 || base.length > 32) {
-    const err = new Error('Username must be 3–32 characters (letters, numbers, underscore).');
-    err.code = 'INVALID_USERNAME';
-    throw err;
+  const username = String(newUsername || '').trim();
+  // Basic client-side validation: 3-20 chars, letters, numbers, underscore, dot
+  const valid = /^[a-zA-Z0-9_.]{3,20}$/.test(username);
+  if (!valid) {
+    const msg = 'Usernames must be 3-20 characters and use only letters, numbers, underscore, or dot.';
+    return { data: null, error: { message: msg, code: 'invalid_username' } };
   }
 
-  let attempt = base;
-  let suffix = 0;
-  while (true) {
-    // First try to update existing profile row
-    const { data: updData, error: updErr } = await supabase
-      .from('profiles')
-      .update({ username: attempt })
-      .eq('id', user.id)
-      .select('id, username');
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert({ id: userId, username }, { onConflict: 'id' })
+    .select('id, username')
+    .maybeSingle();
 
-    if (!updErr && (updData?.length ?? 0) > 0) {
-      return { username: attempt };
-    }
-
-    // If no row updated (profile might not exist), attempt insert
-    if (!updErr && (updData?.length ?? 0) === 0) {
-      const { error: insErr } = await supabase
-        .from('profiles')
-        .insert({ id: user.id, username: attempt });
-      if (!insErr) return { username: attempt };
-      // Handle unique violation on insert
-      if ((insErr.code || insErr.message)?.toString().includes('23505')) {
-        suffix += 1;
-        attempt = `${base}${suffix}`;
-        continue;
-      }
-      throw insErr;
-    }
-
-    // If update errored due to unique violation, try a new attempt
-    if (updErr && (updErr.code || updErr.message)?.toString().includes('23505')) {
-      suffix += 1;
-      attempt = `${base}${suffix}`;
-      continue;
-    }
-
-    if (updErr) throw updErr;
+  // Map unique constraint violation to friendly error
+  if (error && (error.code === '23505' || /duplicate key|unique/i.test(error.message))) {
+    return { data: null, error: { message: 'That username is already taken. Try another.', code: 'username_taken' } };
   }
+  return { data: data ?? null, error: error ?? null };
 }
 
 export async function getDishStats(dishId) {

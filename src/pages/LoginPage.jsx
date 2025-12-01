@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Container, Heading, Text, VStack, Avatar, Button, Alert, AlertIcon, Spinner, Input, FormControl, FormLabel } from '@chakra-ui/react';
 import { signInWithPassword, signOut, signUpWithEmail, getProfile, updateUsername } from '../api';
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
@@ -7,18 +7,16 @@ export default function LoginPage() {
   const { user, loading } = useSupabaseAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [username, setUsername] = useState('');
   const [mode, setMode] = useState('signin');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [signingOut, setSigningOut] = useState(false);
-  const [profileUsername, setProfileUsername] = useState('');
-  const [needsUsername, setNeedsUsername] = useState(false);
-  const [usernameBusy, setUsernameBusy] = useState(false);
-  const [usernameMsg, setUsernameMsg] = useState('');
-  const [usernameErr, setUsernameErr] = useState('');
-  const promptedRef = useRef(false);
+  const [username, setUsername] = useState('');
+  const [usernameLoading, setUsernameLoading] = useState(false);
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
+  const [usernameMessage, setUsernameMessage] = useState('');
 
   const isSignUp = mode === 'signup';
   const displayName = user?.user_metadata?.full_name || user?.email || 'User';
@@ -31,7 +29,7 @@ export default function LoginPage() {
 
     let authError;
     if (isSignUp) {
-      const { error } = await signUpWithEmail(email, password, username || undefined);
+      const { error } = await signUpWithEmail(email, password);
       authError = error;
     } else {
       const { error } = await signInWithPassword(email, password);
@@ -48,7 +46,6 @@ export default function LoginPage() {
       }
       setEmail('');
       setPassword('');
-      setUsername('');
     }
 
     setSubmitting(false);
@@ -60,69 +57,40 @@ export default function LoginPage() {
     setSigningOut(false);
   };
 
+  // Load current username when logged in
   useEffect(() => {
     (async () => {
       if (!user?.id) {
-        setProfileUsername('');
-        setNeedsUsername(false);
-        setUsernameMsg('');
-        setUsernameErr('');
-        promptedRef.current = false;
+        setUsername('');
         return;
       }
+      setUsernameLoading(true);
+      setUsernameError('');
+      setUsernameMessage('');
       try {
         const profile = await getProfile(user.id);
-        const uname = profile?.username || '';
-        setProfileUsername(uname);
-        const missing = !uname || !uname.trim();
-        setNeedsUsername(missing);
-        if (missing && !promptedRef.current) {
-          promptedRef.current = true;
-          // Prompt user to set a username immediately after sign-in
-          await promptForUsername();
-        }
+        setUsername(profile?.username || '');
       } catch (e) {
-        console.warn('Failed to load profile', e);
-        setNeedsUsername(true);
-        if (!promptedRef.current) {
-          promptedRef.current = true;
-          await promptForUsername();
-        }
+        // Non-fatal: user can still set a username
+        setUsername('');
+      } finally {
+        setUsernameLoading(false);
       }
     })();
   }, [user?.id]);
 
-  async function promptForUsername() {
-    if (!user) return;
-    setUsernameErr('');
-    setUsernameMsg('');
-    try {
-      // Basic prompt UX to collect username
-      let input = window.prompt('Choose a username (letters, numbers, underscore, 3–32 chars):', profileUsername || '');
-      if (input == null) {
-        // user cancelled
-        setNeedsUsername(!profileUsername);
-        return;
-      }
-      input = String(input).trim();
-      if (!input) {
-        setUsernameErr('Username cannot be empty.');
-        setNeedsUsername(true);
-        return;
-      }
-      setUsernameBusy(true);
-      const { username: saved } = await updateUsername(input);
-      setProfileUsername(saved);
-      setNeedsUsername(false);
-      setUsernameMsg('Username set successfully.');
-    } catch (e) {
-      const msg = e?.message || 'Failed to set username.';
-      setUsernameErr(msg);
-      setNeedsUsername(true);
-    } finally {
-      setUsernameBusy(false);
+  const onSaveUsername = async () => {
+    setSavingUsername(true);
+    setUsernameError('');
+    setUsernameMessage('');
+    const { error } = await updateUsername(username);
+    if (error) {
+      setUsernameError(error.message || 'Could not update username.');
+    } else {
+      setUsernameMessage('Username updated!');
     }
-  }
+    setSavingUsername(false);
+  };
 
   if (loading) {
     return (
@@ -177,17 +145,7 @@ export default function LoginPage() {
               placeholder="you@example.com"
             />
           </FormControl>
-          {isSignUp ? (
-            <FormControl isRequired>
-              <FormLabel>Username</FormLabel>
-              <Input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="your_username"
-              />
-            </FormControl>
-          ) : null}
+          {/* Username input removed: usernames are no longer set/changed by users */}
           <FormControl isRequired>
             <FormLabel>Password</FormLabel>
             <Input
@@ -224,30 +182,40 @@ export default function LoginPage() {
           />
           <Heading size="md">Hello, {displayName}!</Heading>
           <Text color="gray.600">{user.email}</Text>
-          {usernameErr ? (
-            <Alert status="error" borderRadius="md" fontSize="sm" w="full">
-              <AlertIcon />
-              {usernameErr}
-            </Alert>
-          ) : null}
-          {usernameMsg ? (
-            <Alert status="success" borderRadius="md" fontSize="sm" w="full">
-              <AlertIcon />
-              {usernameMsg}
-            </Alert>
-          ) : null}
-          {needsUsername ? (
-            <Alert status="warning" borderRadius="md" fontSize="sm" w="full">
-              <AlertIcon />
-              You need to set a username to continue. Click "Set Username" below.
-            </Alert>
-          ) : null}
-          <Button colorScheme="brand" variant="solid" onClick={promptForUsername} isLoading={usernameBusy} w="full">
-            {profileUsername ? 'Change Username' : 'Set Username'}
-          </Button>
-          {profileUsername ? (
-            <Text fontSize="sm" color="gray.600">Current: @{profileUsername}</Text>
-          ) : null}
+          <VStack w="full" spacing={3} align="stretch">
+            <Heading size="sm">Your username</Heading>
+            {usernameError ? (
+              <Alert status="error" borderRadius="md" fontSize="sm">
+                <AlertIcon />
+                {usernameError}
+              </Alert>
+            ) : null}
+            {usernameMessage ? (
+              <Alert status="success" borderRadius="md" fontSize="sm">
+                <AlertIcon />
+                {usernameMessage}
+              </Alert>
+            ) : null}
+            <FormControl isRequired isDisabled={usernameLoading}>
+              <FormLabel>Username</FormLabel>
+              <Input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="e.g. thunderbird123"
+              />
+            </FormControl>
+            <Button
+              colorScheme="brand"
+              onClick={onSaveUsername}
+              isLoading={savingUsername}
+              isDisabled={usernameLoading || !username || username.trim().length < 3}
+            >
+              Save Username
+            </Button>
+            <Text color="gray.500" fontSize="sm">
+              3–20 characters. Letters, numbers, underscore, and dot only. Must be unique.
+            </Text>
+          </VStack>
           <Button colorScheme="brand" onClick={handleLogout}>
             Log Out
           </Button>

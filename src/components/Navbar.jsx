@@ -1,7 +1,7 @@
 import { Box, Button, Flex, Heading, HStack, Menu, MenuButton, MenuList, MenuItem, VStack, Text, Avatar, Divider, IconButton, Input, FormControl, FormLabel, Alert, AlertIcon, Spinner } from '@chakra-ui/react';
 import { Link as RouterLink } from 'react-router-dom';
-import { useState } from 'react';
-import { signInWithPassword, signOut, signUpWithEmail } from '../api';
+import { useEffect, useState } from 'react';
+import { signInWithPassword, signOut, signUpWithEmail, getProfile, updateUsername } from '../api';
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 
 export default function Navbar() {
@@ -13,6 +13,13 @@ export default function Navbar() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [signingOut, setSigningOut] = useState(false);
+
+  // Username management (shown in logged-in popup)
+  const [username, setUsername] = useState('');
+  const [usernameLoading, setUsernameLoading] = useState(false);
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
+  const [usernameMessage, setUsernameMessage] = useState('');
 
   const isSignUp = mode === 'signup';
   const displayName = user?.user_metadata?.full_name || user?.email || 'User';
@@ -41,6 +48,41 @@ export default function Navbar() {
     setSigningOut(true);
     await signOut();
     setSigningOut(false);
+  };
+
+  // Load current username when logged in
+  useEffect(() => {
+    (async () => {
+      if (!user?.id) {
+        setUsername('');
+        return;
+      }
+      setUsernameLoading(true);
+      setUsernameError('');
+      setUsernameMessage('');
+      try {
+        const profile = await getProfile(user.id);
+        setUsername(profile?.username || '');
+      } catch (e) {
+        // Non-fatal: user can still set a username
+        setUsername('');
+      } finally {
+        setUsernameLoading(false);
+      }
+    })();
+  }, [user?.id]);
+
+  const onSaveUsername = async () => {
+    setSavingUsername(true);
+    setUsernameError('');
+    setUsernameMessage('');
+    const { error } = await updateUsername(username);
+    if (error) {
+      setUsernameError(error.message || 'Could not update username.');
+    } else {
+      setUsernameMessage('Username updated!');
+    }
+    setSavingUsername(false);
   };
 
   return (
@@ -170,6 +212,46 @@ export default function Navbar() {
                     <Text fontWeight="semibold" fontSize="md">{displayName}</Text>
                     <Text color="gray.600" fontSize="sm">{user.email}</Text>
                   </VStack>
+
+                  {/* Username editor inside the popup */}
+                  <Divider />
+                  <VStack px={4} spacing={3} align="stretch">
+                    <Text fontWeight="semibold" fontSize="sm">Your username</Text>
+                    {usernameError ? (
+                      <Alert status="error" borderRadius="md" fontSize="sm">
+                        <AlertIcon />
+                        {usernameError}
+                      </Alert>
+                    ) : null}
+                    {usernameMessage ? (
+                      <Alert status="success" borderRadius="md" fontSize="sm">
+                        <AlertIcon />
+                        {usernameMessage}
+                      </Alert>
+                    ) : null}
+                    <FormControl isRequired isDisabled={usernameLoading}>
+                      <FormLabel fontSize="sm">Username</FormLabel>
+                      <Input
+                        size="sm"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="e.g. thunderbird123"
+                      />
+                    </FormControl>
+                    <Button
+                      colorScheme="brand"
+                      size="sm"
+                      onClick={onSaveUsername}
+                      isLoading={savingUsername}
+                      isDisabled={usernameLoading || !username || username.trim().length < 3}
+                    >
+                      Save Username
+                    </Button>
+                    <Text color="gray.500" fontSize="xs">
+                      3–20 characters. Letters, numbers, underscore, and dot only. Must be unique.
+                    </Text>
+                  </VStack>
+
                   <Divider />
                   <MenuItem
                     onClick={handleLogout}

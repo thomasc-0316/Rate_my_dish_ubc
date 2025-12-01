@@ -1,4 +1,4 @@
-import { Box, Heading, Text, Image } from '@chakra-ui/react';
+import { Box, Heading, Text, Image, Center } from '@chakra-ui/react';
 import { Link } from 'react-router-dom';
 import { useDishImage } from '../hooks/useDishImage';
 
@@ -20,7 +20,7 @@ export default function DishCard({ dish, stats }) {
         />
       )}
       <Heading size="md">{dish.name}</Heading>
-      <Text fontSize="sm" color="gray.600">
+      <Text fontSize="sm" color="gray.600" position={Center}>
         {dish.description || 'No description yet.'}
       </Text>
       {stats && (

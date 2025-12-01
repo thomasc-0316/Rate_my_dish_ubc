@@ -210,12 +210,20 @@ export async function listComments(dishId, limit = 20) {
   // Attach usernames from profiles
   const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
   if (!userIds.length) return rows;
-  const { data: profileRows, error: profileErr } = await supabase
-    .from('profiles')
-    .select('id, username')
-    .in('id', userIds);
-  if (profileErr) throw profileErr;
-  const byId = new Map((profileRows ?? []).map((p) => [p.id, p.username]));
+  let profileRows = [];
+  try {
+    const result = await supabase
+      .from('profiles')
+      .select('id, username')
+      .in('id', userIds);
+    if (result.error) throw result.error;
+    profileRows = result.data ?? [];
+  } catch (e) {
+    // Graceful degradation: if profiles cannot be read (e.g., RLS or anon env),
+    // still return comments with a fallback username.
+    profileRows = [];
+  }
+  const byId = new Map(profileRows.map((p) => [p.id, p.username]));
   return rows.map((r) => ({ ...r, username: byId.get(r.user_id) || 'Anonymous' }));
 }
 

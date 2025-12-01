@@ -20,7 +20,7 @@ export default function DishCard({ dish, stats }) {
         />
       )}
       <Heading size="md">{dish.name}</Heading>
-      <Text fontSize="sm" color="gray.600">
+      <Text fontSize="sm" color="gray.600" textAlign="center">
         {dish.description || 'No description yet.'}
       </Text>
       {stats && (

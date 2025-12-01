@@ -23,6 +23,7 @@ import {
   addOrUpdateRating,
   getDish,
   getDishStats,
+  getProfile,
   listComments,
   listHalls,
   listStations
@@ -46,6 +47,7 @@ export default function DishPage() {
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingMessage, setRatingMessage] = useState('');
   const imageUrl = useDishImage(dish);
+  const [currentUsername, setCurrentUsername] = useState('');
   const formatName = (name) =>
     typeof name === 'string' ? name.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : '';
 
@@ -84,6 +86,23 @@ export default function DishPage() {
     })();
   }, [hallId, stationId, dishId]);
 
+  // Load current user's username for optimistic comments
+  useEffect(() => {
+    (async () => {
+      if (!user?.id) {
+        setCurrentUsername('');
+        return;
+      }
+      try {
+        const profile = await getProfile(user.id);
+        setCurrentUsername(profile?.username || '');
+      } catch (e) {
+        console.warn('Failed to load profile', e);
+        setCurrentUsername('');
+      }
+    })();
+  }, [user?.id]);
+
   async function handleComment(event) {
     event.preventDefault();
     if (!dish || !body.trim()) return;
@@ -95,6 +114,7 @@ export default function DishPage() {
         {
           id: `local-${Date.now()}`,
           user_id: user.id,
+          username: currentUsername || 'You',
           dish_id: dish.id,
           body: body.trim(),
           created_at: new Date().toISOString()
@@ -272,7 +292,7 @@ export default function DishPage() {
                 {comments.map((comment) => (
                   <CommentItem
                     key={comment.id}
-                    username={comment.user_id || 'Anonymous'}
+                    username={comment.username || 'Anonymous'}
                     timestamp={comment.created_at || 'Just now'}
                     text={comment.body}
                   />

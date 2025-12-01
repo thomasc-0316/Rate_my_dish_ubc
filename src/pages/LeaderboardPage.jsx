@@ -94,7 +94,7 @@ export default function LeaderboardPage() {
                     </Text>
                   </Td>
                   <Td isNumeric fontWeight="bold">
-                    {entry.count > 0 ? `${entry.avg.toFixed(1)}/10` : 'No ratings'}
+                    {entry.count > 0 ? `${entry.avg.toFixed(1)}/5` : 'No ratings'}
                   </Td>
                 </Tr>
               ))}

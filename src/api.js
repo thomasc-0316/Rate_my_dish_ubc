@@ -40,33 +40,58 @@ export async function listStations(hallSlug) {
 export async function listDishes(stationId) {
   const { data, error } = await supabase
     .from('dishes')
-    .select('id, station_id, name, description, ratings(score)')
+    .select('*')
     .eq('station_id', stationId)
     .order('name');
   if (error) throw error;
-
-  return (data ?? []).map((row) => {
-    const scores = Array.isArray(row.ratings)
-      ? row.ratings.map((r) => r?.score).filter((s) => typeof s === 'number')
-      : [];
-    const count = scores.length;
-    const total = scores.reduce((sum, s) => sum + s, 0);
-    const avg = count ? total / count : null;
-    return {
-      id: row.id,
-      station_id: row.station_id,
-      name: row.name,
-      description: row.description,
-      rating: avg,
-      rating_count: count
-    };
-  });
+  return data ?? [];
 }
 
 export async function getDish(dishId) {
   const { data, error } = await supabase.from('dishes').select('*').eq('id', dishId).maybeSingle();
   if (error) throw error;
   return data ?? null;
+}
+
+export async function getProfile(userId) {
+  if (!userId) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, username')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
+// Create or update the current user's username.
+// Performs an upsert on profiles with conflict target = id.
+// Returns the updated profile row.
+export async function updateUsername(newUsername) {
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError) throw userError;
+  const userId = userData?.user?.id;
+  if (!userId) throw new Error('Not signed in');
+
+  const username = String(newUsername || '').trim();
+  // Basic client-side validation: 3-20 chars, letters, numbers, underscore, dot
+  const valid = /^[a-zA-Z0-9_.]{3,20}$/.test(username);
+  if (!valid) {
+    const msg = 'Usernames must be 3-20 characters and use only letters, numbers, underscore, or dot.';
+    return { data: null, error: { message: msg, code: 'invalid_username' } };
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .upsert({ id: userId, username }, { onConflict: 'id' })
+    .select('id, username')
+    .maybeSingle();
+
+  // Map unique constraint violation to friendly error
+  if (error && (error.code === '23505' || /duplicate key|unique/i.test(error.message))) {
+    return { data: null, error: { message: 'That username is already taken. Try another.', code: 'username_taken' } };
+  }
+  return { data: data ?? null, error: error ?? null };
 }
 
 export async function getDishStats(dishId) {
@@ -96,7 +121,25 @@ export async function listComments(dishId, limit = 20) {
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) throw error;
-  return data ?? [];
+  const rows = data ?? [];
+  // Attach usernames from profiles
+  const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)));
+  if (!userIds.length) return rows;
+  let profileRows = [];
+  try {
+    const result = await supabase
+      .from('profiles')
+      .select('id, username')
+      .in('id', userIds);
+    if (result.error) throw result.error;
+    profileRows = result.data ?? [];
+  } catch (e) {
+    // Graceful degradation: if profiles cannot be read (e.g., RLS or anon env),
+    // still return comments with a fallback username.
+    profileRows = [];
+  }
+  const byId = new Map(profileRows.map((p) => [p.id, p.username]));
+  return rows.map((r) => ({ ...r, username: byId.get(r.user_id) || 'Anonymous' }));
 }
 
 export async function addComment(dishId, body) {

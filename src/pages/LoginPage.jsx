@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { Container, Heading, Text, VStack, Avatar, Button, Input, FormControl, FormLabel, Alert, AlertIcon, Spinner } from '@chakra-ui/react';
-import { signInWithPassword, signOut, signUpWithEmail } from '../api';
+import { useEffect, useState } from 'react';
+import { Container, Heading, Text, VStack, Avatar, Button, Alert, AlertIcon, Spinner, Input, FormControl, FormLabel } from '@chakra-ui/react';
+import { signInWithPassword, signOut, signUpWithEmail, getProfile, updateUsername } from '../api';
 import { useSupabaseAuth } from '../hooks/useSupabaseAuth';
 
 export default function LoginPage() {
@@ -12,6 +12,11 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [signingOut, setSigningOut] = useState(false);
+  const [username, setUsername] = useState('');
+  const [usernameLoading, setUsernameLoading] = useState(false);
+  const [savingUsername, setSavingUsername] = useState(false);
+  const [usernameError, setUsernameError] = useState('');
+  const [usernameMessage, setUsernameMessage] = useState('');
 
   const isSignUp = mode === 'signup';
   const displayName = user?.user_metadata?.full_name || user?.email || 'User';
@@ -22,13 +27,23 @@ export default function LoginPage() {
     setError('');
     setMessage('');
 
-    const action = isSignUp ? signUpWithEmail : signInWithPassword;
-    const { error: authError } = await action(email, password);
+    let authError;
+    if (isSignUp) {
+      const { error } = await signUpWithEmail(email, password);
+      authError = error;
+    } else {
+      const { error } = await signInWithPassword(email, password);
+      authError = error;
+    }
 
     if (authError) {
       setError(authError.message);
     } else {
-      setMessage(isSignUp ? 'Check your email to confirm your account before signing in.' : 'Signed in!');
+      if (isSignUp) {
+        setMessage('Check your email to confirm your account before signing in.');
+      } else {
+        setMessage('Signed in!');
+      }
       setEmail('');
       setPassword('');
     }
@@ -40,6 +55,41 @@ export default function LoginPage() {
     setSigningOut(true);
     await signOut();
     setSigningOut(false);
+  };
+
+  // Load current username when logged in
+  useEffect(() => {
+    (async () => {
+      if (!user?.id) {
+        setUsername('');
+        return;
+      }
+      setUsernameLoading(true);
+      setUsernameError('');
+      setUsernameMessage('');
+      try {
+        const profile = await getProfile(user.id);
+        setUsername(profile?.username || '');
+      } catch (e) {
+        // Non-fatal: user can still set a username
+        setUsername('');
+      } finally {
+        setUsernameLoading(false);
+      }
+    })();
+  }, [user?.id]);
+
+  const onSaveUsername = async () => {
+    setSavingUsername(true);
+    setUsernameError('');
+    setUsernameMessage('');
+    const { error } = await updateUsername(username);
+    if (error) {
+      setUsernameError(error.message || 'Could not update username.');
+    } else {
+      setUsernameMessage('Username updated!');
+    }
+    setSavingUsername(false);
   };
 
   if (loading) {
@@ -95,6 +145,7 @@ export default function LoginPage() {
               placeholder="you@example.com"
             />
           </FormControl>
+          {/* Username input removed: usernames are no longer set/changed by users */}
           <FormControl isRequired>
             <FormLabel>Password</FormLabel>
             <Input
@@ -131,6 +182,40 @@ export default function LoginPage() {
           />
           <Heading size="md">Hello, {displayName}!</Heading>
           <Text color="gray.600">{user.email}</Text>
+          <VStack w="full" spacing={3} align="stretch">
+            <Heading size="sm">Your username</Heading>
+            {usernameError ? (
+              <Alert status="error" borderRadius="md" fontSize="sm">
+                <AlertIcon />
+                {usernameError}
+              </Alert>
+            ) : null}
+            {usernameMessage ? (
+              <Alert status="success" borderRadius="md" fontSize="sm">
+                <AlertIcon />
+                {usernameMessage}
+              </Alert>
+            ) : null}
+            <FormControl isRequired isDisabled={usernameLoading}>
+              <FormLabel>Username</FormLabel>
+              <Input
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="e.g. thunderbird123"
+              />
+            </FormControl>
+            <Button
+              colorScheme="brand"
+              onClick={onSaveUsername}
+              isLoading={savingUsername}
+              isDisabled={usernameLoading || !username || username.trim().length < 3}
+            >
+              Save Username
+            </Button>
+            <Text color="gray.500" fontSize="sm">
+              3–20 characters. Letters, numbers, underscore, and dot only. Must be unique.
+            </Text>
+          </VStack>
           <Button colorScheme="brand" onClick={handleLogout}>
             Log Out
           </Button>
